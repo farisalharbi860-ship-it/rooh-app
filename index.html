@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>مؤسسة روح المنافسة المحلية</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#1e3a8a" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="روح المنافسة" />
+<link rel="apple-touch-icon" href="icon.png" />
+<link rel="icon" type="image/png" href="icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<!-- ===== LOGIN SCREEN ===== -->
+<div id="loginScreen" class="login-screen">
+  <form class="login-card" id="loginForm" onsubmit="return doLogin(event)">
+    <div class="login-logo">🏗️</div>
+    <h2>مؤسسة روح المنافسة المحلية</h2>
+    <p class="login-sub">سجّل الدخول للوصول إلى بياناتك من أي جهاز</p>
+    <div class="field"><label>البريد الإلكتروني</label><input type="email" id="loginEmail" autocomplete="username" required /></div>
+    <div class="field"><label>كلمة المرور</label><input type="password" id="loginPass" autocomplete="current-password" required /></div>
+    <div id="loginError" class="login-error" style="display:none"></div>
+    <button type="submit" class="btn btn-primary" id="loginBtn" style="width:100%">دخول</button>
+  </form>
+</div>
+<div id="appRoot" style="display:none">
+<header class="app-header">
+  <h1>🏗️ مؤسسة روح المنافسة المحلية</h1>
+  <p>تتبع المشاريع والمصروفات والإيرادات والتقارير</p>
+</header>
+
+<div class="container">
+  <div class="tabs no-print" style="justify-content:space-between">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="tab-btn active" data-tab="projects" onclick="switchTab('projects')">المشاريع</button>
+      <button class="tab-btn" data-tab="reports" onclick="switchTab('reports')">التقارير</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" id="installBtn" style="display:none" onclick="installApp()" title="تثبيت التطبيق على جهازك">⬇️ تثبيت التطبيق</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportBackup()" title="حفظ نسخة احتياطية من كل البيانات">💾 نسخة احتياطية</button>
+      <button class="btn btn-ghost btn-sm" onclick="openAutoBackups()" title="النسخ الاحتياطية التلقائية المحفوظة داخل المتصفح">🕓 النسخ التلقائية</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('importFile').click()" title="استعادة البيانات من ملف">📥 استيراد</button>
+      <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importBackup(event)" />
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()" title="تسجيل الخروج">🚪 خروج</button>
+    </div>
+  </div>
+
+  <!-- ===== PROJECTS TAB ===== -->
+  <div id="tab-projects">
+    <div class="card no-print">
+      <h2><span class="dot"></span> إضافة مشروع</h2>
+      <form id="projectForm" onsubmit="return addProject(event)">
+        <div class="form-grid">
+          <div class="field">
+            <label>اسم المشروع</label>
+            <input type="text" id="pName" placeholder="مثال: مبنى سكني" required />
+          </div>
+          <div class="field">
+            <label>الشركة التابع لها</label>
+            <input type="text" id="pCompany" placeholder="مثال: شركة البناء" required />
+          </div>
+          <div class="field">
+            <label>تاريخ العقد</label>
+            <input type="date" id="pDate" required />
+          </div>
+          <div class="field">
+            <label>نوع المشروع</label>
+            <select id="pStatus">
+              <option value="حالي">مشروع حالي</option>
+              <option value="سابق">مشروع سابق</option>
+            </select>
+          </div>
+          <div class="field">
+            <button type="submit" class="btn btn-primary">+ إضافة المشروع</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2><span class="dot"></span> قائمة المشاريع</h2>
+      <div id="projectsList" class="projects-grid"></div>
+    </div>
+  </div>
+
+  <!-- ===== REPORTS TAB ===== -->
+  <div id="tab-reports" style="display:none">
+    <div class="card no-print">
+      <h2><span class="dot"></span> إنشاء تقرير</h2>
+      <div class="form-grid">
+        <div class="field">
+          <label>اختر المشروع</label>
+          <select id="rProject"></select>
+        </div>
+        <div class="field">
+          <label>من تاريخ</label>
+          <input type="date" id="rFrom" />
+        </div>
+        <div class="field">
+          <label>إلى تاريخ</label>
+          <input type="date" id="rTo" />
+        </div>
+        <div class="field">
+          <button class="btn btn-primary" onclick="generateReport()">عرض التقرير</button>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-top:10px">اترك حقول التاريخ فارغة لعرض كل السجلات.</p>
+    </div>
+    <div id="reportOutput"></div>
+  </div>
+</div>
+</div><!-- /appRoot -->
+
+<!-- ===== PROJECT DETAIL MODAL ===== -->
+<div class="modal-overlay" id="projectModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h2 id="mTitle"></h2>
+        <div class="sub" id="mSub"></div>
+      </div>
+      <button class="close-x no-print" onclick="closeModal()">✕</button>
+    </div>
+
+    <div class="summary-row" id="mSummary"></div>
+
+    <!-- Expenses -->
+    <div class="card no-print">
+      <h2 style="color:var(--danger)"><span class="dot" style="background:var(--danger)"></span> إضافة مصروف</h2>
+      <form id="expForm" onsubmit="return addExpense(event)">
+        <div class="form-grid">
+          <div class="field"><label>المبلغ</label><input type="number" step="0.01" min="0" id="eAmount" required /></div>
+          <div class="field"><label>السبب</label><input type="text" id="eReason" placeholder="مثال: مواد بناء" required /></div>
+          <div class="field"><label>التاريخ</label><input type="date" id="eDate" required /></div>
+          <div class="field"><label>العمل المنجز</label><input type="text" id="eWork" placeholder="مثال: صب الأساسات" /></div>
+          <div class="field"><button type="submit" class="btn btn-success">+ إضافة مصروف</button></div>
+        </div>
+      </form>
+    </div>
+    <div class="section-title" style="color:var(--danger)">المصروفات</div>
+    <div class="table-wrap"><table id="expTable"></table></div>
+
+    <!-- Revenues -->
+    <div class="card no-print" style="margin-top:22px">
+      <h2 style="color:var(--success)"><span class="dot" style="background:var(--success)"></span> إضافة إيراد (دفعة)</h2>
+      <form id="revForm" onsubmit="return addRevenue(event)">
+        <div class="form-grid">
+          <div class="field"><label>رقم الدفعة</label><input type="text" id="vNumber" placeholder="مثال: 1" required /></div>
+          <div class="field"><label>التاريخ</label><input type="date" id="vDate" required /></div>
+          <div class="field"><label>المبلغ</label><input type="number" step="0.01" min="0" id="vAmount" required /></div>
+          <div class="field"><button type="submit" class="btn btn-success">+ إضافة إيراد</button></div>
+        </div>
+      </form>
+    </div>
+    <div class="section-title" style="color:var(--success)">الإيرادات</div>
+    <div class="table-wrap"><table id="revTable"></table></div>
+  </div>
+</div>
+
+<!-- ===== AUTO BACKUPS MODAL ===== -->
+<div class="modal-overlay" id="autoModal">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-head">
+      <div>
+        <h2>النسخ الاحتياطية التلقائية</h2>
+        <div class="sub">تُحفظ تلقائياً داخل المتصفح عند كل تعديل (لقطة لكل يوم، آخر 10 أيام).</div>
+      </div>
+      <button class="close-x" onclick="closeAutoModal()">✕</button>
+    </div>
+    <div id="autoList"></div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
