@@ -44,6 +44,7 @@
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="tab-btn active" data-tab="projects" onclick="switchTab('projects')">المشاريع</button>
       <button class="tab-btn" data-tab="reports" onclick="switchTab('reports')">التقارير</button>
+      <button class="tab-btn" data-tab="invoices" onclick="switchTab('invoices')">🧾 فواتير</button>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" id="installBtn" style="display:none" onclick="installApp()" title="تثبيت التطبيق على جهازك">⬇️ تثبيت التطبيق</button>
@@ -118,8 +119,133 @@
     </div>
     <div id="reportOutput"></div>
   </div>
+
+  <!-- ===== INVOICES TAB ===== -->
+  <div id="tab-invoices" style="display:none">
+    <div class="card no-print">
+      <h2><span class="dot"></span> إنشاء فاتورة ضريبية</h2>
+      <form id="invoiceForm" onsubmit="return createInvoice(event)">
+        <div class="form-grid">
+          <div class="field"><label>العميل (الشركة)</label><input type="text" id="invCustomer" placeholder="مثال: شركة اعمار الخليج" required /></div>
+          <div class="field"><label>المشروع</label><select id="invProject" required></select></div>
+          <div class="field"><label>رقم الفاتورة</label><input type="text" id="invNumber" placeholder="تلقائي إذا تركته فارغاً" /></div>
+          <div class="field"><label>تاريخ الفاتورة</label><input type="date" id="invDate" required /></div>
+          <div class="field"><label>طريقة الدفع</label>
+            <select id="invPayType">
+              <option value="آجل">آجل</option>
+              <option value="نقدي">نقدي</option>
+            </select>
+          </div>
+          <div class="field"><label>الرقم الضريبي للعميل</label><input type="text" id="invVatNo" placeholder="مثال: 310861602100003" /></div>
+          <div class="field" style="grid-column:1/-1"><label>ملاحظات</label><input type="text" id="invNotes" placeholder="مثال: حسب - مستخلص رقم (2)" /></div>
+        </div>
+
+        <h3 style="margin:18px 0 10px;font-size:15px;color:var(--text)">بيان الأعمال</h3>
+        <div class="table-wrap">
+          <table id="invItemsTable">
+            <thead>
+              <tr>
+                <th>م</th><th>بيان الأعمال</th><th>الوحدة</th><th>الكمية حسب العقد</th>
+                <th>الكمية السابقة</th><th>الكمية الحالية</th><th>إجمالي الكمية</th>
+                <th>الفئة بالريال</th><th>المبلغ السابق</th><th>المبلغ الحالي</th><th>إجمالي المبلغ</th><th class="no-print"></th>
+              </tr>
+            </thead>
+            <tbody id="invItemsBody">
+              <!-- rows added by JS -->
+            </tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm no-print" onclick="addInvoiceRow()" style="margin-top:8px">+ إضافة بند</button>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:18px;flex-wrap:wrap;gap:12px">
+          <div style="font-size:14px;color:var(--muted)">
+            المجموع: <strong id="invSubtotal" style="color:var(--text)">0.00</strong> |
+            ضريبة 15%: <strong id="invVat" style="color:var(--text)">0.00</strong> |
+            الصافي: <strong id="invTotal" style="color:var(--danger);font-size:18px">0.00</strong>
+          </div>
+          <button type="submit" class="btn btn-primary">💾 حفظ الفاتورة</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2><span class="dot"></span> قائمة الفواتير</h2>
+      <div id="invoicesList"></div>
+    </div>
+  </div>
 </div>
 </div><!-- /appRoot -->
+
+<!-- ===== INVOICE PRINT TEMPLATE (hidden) ===== -->
+<div id="invoicePrintTemplate" style="display:none;width:210mm;padding:20px;font-family:Cairo,sans-serif;background:#fff;color:#000;direction:rtl">
+  <div style="text-align:center;border-bottom:2px solid #1e3a8a;padding-bottom:15px;margin-bottom:20px">
+    <h2 style="margin:0;color:#1e3a8a">مؤسسة روح المنافسة المحلية</h2>
+    <p style="margin:4px 0;font-size:13px">تجارة المقاولات العامة - رقم السجل التجاري: 4030379558</p>
+    <p style="margin:4px 0;font-size:13px">الرقم الضريبي: 311392255700003</p>
+    <p style="margin:4px 0;font-size:13px">الهاتف: 0500908917 - 0500908916 | البريد: info@rooh-almonafsa.com</p>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-bottom:20px">
+    <div>
+      <p><strong>العميل:</strong> <span id="ptCustomer"></span></p>
+      <p><strong>المشروع:</strong> <span id="ptProject"></span></p>
+      <p><strong>الرقم الضريبي للعميل:</strong> <span id="ptVatNo"></span></p>
+    </div>
+    <div style="text-align:left">
+      <p><strong>رقم الفاتورة:</strong> <span id="ptInvNo"></span></p>
+      <p><strong>التاريخ:</strong> <span id="ptDate"></span></p>
+      <p><strong>طريقة الدفع:</strong> <span id="ptPayType"></span></p>
+    </div>
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:15px" border="1">
+    <thead>
+      <tr style="background:#1e3a8a;color:#fff">
+        <th>م</th><th>بيان الأعمال</th><th>الوحدة</th><th>الكمية حسب العقد</th>
+        <th>الكمية السابقة</th><th>الكمية الحالية</th><th>إجمالي الكمية</th>
+        <th>الفئة بالريال</th><th>المبلغ السابق</th><th>المبلغ الحالي</th><th>إجمالي المبلغ</th>
+      </tr>
+    </thead>
+    <tbody id="ptItems"></tbody>
+    <tfoot>
+      <tr><td colspan="10" style="text-align:left"><strong>المجموع</strong></td><td id="ptSubtotal"></td></tr>
+      <tr><td colspan="10" style="text-align:left"><strong>ضريبة القيمة المضافة 15%</strong></td><td id="ptVat"></td></tr>
+      <tr><td colspan="10" style="text-align:left"><strong>المجموع الصافي</strong></td><td id="ptTotal"></td></tr>
+    </tfoot>
+  </table>
+  <p id="ptNotes" style="font-size:13px;margin-bottom:30px"></p>
+  <div style="display:flex;justify-content:space-between;margin-top:40px;font-size:13px">
+    <div>توقيع المستلم: _________________</div>
+    <div>توقيع المحاسب: _________________</div>
+    <div>ختم الشركة: _________________</div>
+  </div>
+</div>
+
+<!-- ===== RECEIPT PRINT TEMPLATE (hidden) ===== -->
+<div id="receiptPrintTemplate" style="display:none;width:210mm;padding:20px;font-family:Cairo,sans-serif;background:#fff;color:#000;direction:rtl">
+  <div style="text-align:center;border-bottom:2px solid #1e3a8a;padding-bottom:15px;margin-bottom:20px">
+    <h2 style="margin:0;color:#1e3a8a">مؤسسة روح المنافسة المحلية</h2>
+    <p style="margin:4px 0;font-size:13px">تجارة المقاولات العامة - رقم السجل التجاري: 4030379558</p>
+    <p style="margin:4px 0;font-size:13px">الرقم الضريبي: 311392255700003</p>
+  </div>
+  <h3 style="text-align:center;margin-bottom:20px">سند قبض</h3>
+  <div style="display:flex;justify-content:space-between;margin-bottom:20px">
+    <div>
+      <p><strong>رقم السند:</strong> <span id="ptRecNo"></span></p>
+      <p><strong>التاريخ:</strong> <span id="ptRecDate"></span></p>
+    </div>
+    <div style="text-align:left">
+      <p><strong>رقم الفاتورة:</strong> <span id="ptRecInvNo"></span></p>
+      <p><strong>المبلغ:</strong> <span id="ptRecAmount"></span> ر.س</p>
+    </div>
+  </div>
+  <p><strong>استلمنا من السيد / شركة:</strong> <span id="ptRecFrom"></span></p>
+  <p><strong>مبلغ وقدره:</strong> <span id="ptRecAmountWords"></span> ريال سعودي فقط لا غير.</p>
+  <p><strong>وذلك عن:</strong> <span id="ptRecDesc"></span></p>
+  <div style="display:flex;justify-content:space-between;margin-top:50px;font-size:13px">
+    <div>اسم المستلم: _________________</div>
+    <div>التوقيع: _________________</div>
+    <div>ختم الشركة: _________________</div>
+  </div>
+</div>
 
 <!-- ===== PROJECT DETAIL MODAL ===== -->
 <div class="modal-overlay" id="projectModal">
@@ -140,6 +266,14 @@
       <form id="expForm" onsubmit="return addExpense(event)">
         <div class="form-grid">
           <div class="field"><label>المبلغ</label><input type="number" step="0.01" min="0" id="eAmount" required /></div>
+          <div class="field"><label>الفئة</label>
+            <select id="eCategory">
+              <option value="مواد">مواد</option>
+              <option value="أجور">أجور</option>
+              <option value="معدات">معدات</option>
+              <option value="أخرى">أخرى</option>
+            </select>
+          </div>
           <div class="field"><label>السبب</label><input type="text" id="eReason" placeholder="مثال: مواد بناء" required /></div>
           <div class="field"><label>التاريخ</label><input type="date" id="eDate" required /></div>
           <div class="field"><label>العمل المنجز</label><input type="text" id="eWork" placeholder="مثال: صب الأساسات" /></div>
@@ -185,6 +319,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

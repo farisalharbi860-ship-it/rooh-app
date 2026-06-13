@@ -72,12 +72,345 @@ function sum(arr, key) { return arr.reduce((t, x) => t + Number(x[key] || 0), 0)
 function findProject(id) { return state.projects.find(p => p.id === id); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
-/* ================= Tabs ================= */
+/* ================= Invoices ================= */
+let invoiceState = { items: [] };
+
+function invoicesCol() {
+  return db.collection('users').doc(currentUser.uid).collection('invoices');
+}
+function receiptsCol() {
+  return db.collection('users').doc(currentUser.uid).collection('receipts');
+}
+
+/* ---- Invoice form rows ---- */
+function addInvoiceRow() {
+  const tbody = document.getElementById('invItemsBody');
+  const idx = tbody.children.length + 1;
+  const tr = document.createElement('tr');
+  tr.dataset.id = uid();
+  tr.innerHTML = `
+    <td>${idx}</td>
+    <td><input type="text" class="inv-item" placeholder="بيان الأعمال" style="width:100%;border:none;background:transparent" /></td>
+    <td><input type="text" class="inv-unit" placeholder="م2" style="width:60px;border:none;background:transparent;text-align:center" /></td>
+    <td><input type="number" class="inv-qty-contract" style="width:80px;border:none;background:transparent;text-align:center" step="0.01" /></td>
+    <td><input type="number" class="inv-qty-prev" style="width:80px;border:none;background:transparent;text-align:center" step="0.01" /></td>
+    <td><input type="number" class="inv-qty-curr" style="width:80px;border:none;background:transparent;text-align:center" step="0.01" /></td>
+    <td class="inv-qty-total" style="text-align:center">0</td>
+    <td><input type="number" class="inv-rate" style="width:90px;border:none;background:transparent;text-align:center" step="0.01" /></td>
+    <td class="inv-amt-prev" style="text-align:center">0.00</td>
+    <td class="inv-amt-curr" style="text-align:center">0.00</td>
+    <td class="inv-amt-total" style="text-align:center;font-weight:700">0.00</td>
+    <td class="no-print"><button class="btn btn-danger-ghost btn-sm" onclick="this.closest('tr').remove();recalcInvoice()">×</button></td>
+  `;
+  tbody.appendChild(tr);
+  attachRowListeners(tr);
+}
+
+function attachRowListeners(tr) {
+  const inputs = tr.querySelectorAll('input');
+  inputs.forEach(inp => inp.addEventListener('input', () => recalcRow(tr)));
+}
+
+function recalcRow(tr) {
+  const qtyContract = Number(tr.querySelector('.inv-qty-contract').value) || 0;
+  const qtyPrev = Number(tr.querySelector('.inv-qty-prev').value) || 0;
+  const qtyCurr = Number(tr.querySelector('.inv-qty-curr').value) || 0;
+  const rate = Number(tr.querySelector('.inv-rate').value) || 0;
+
+  const qtyTotal = qtyPrev + qtyCurr;
+  const amtPrev = qtyPrev * rate;
+  const amtCurr = qtyCurr * rate;
+  const amtTotal = amtPrev + amtCurr;
+
+  tr.querySelector('.inv-qty-total').textContent = fmt(qtyTotal);
+  tr.querySelector('.inv-amt-prev').textContent = fmt(amtPrev);
+  tr.querySelector('.inv-amt-curr').textContent = fmt(amtCurr);
+  tr.querySelector('.inv-amt-total').textContent = fmt(amtTotal);
+
+  recalcInvoice();
+}
+
+function recalcInvoice() {
+  let subtotal = 0;
+  document.querySelectorAll('#invItemsBody tr').forEach(tr => {
+    const total = Number(tr.querySelector('.inv-amt-total').textContent.replace(/,/g, '')) || 0;
+    subtotal += total;
+  });
+  const vat = subtotal * 0.15;
+  const total = subtotal + vat;
+  document.getElementById('invSubtotal').textContent = fmt(subtotal);
+  document.getElementById('invVat').textContent = fmt(vat);
+  document.getElementById('invTotal').textContent = fmt(total);
+}
+
+/* ---- Create & Save Invoice ---- */
+async function createInvoice(e) {
+  e.preventDefault();
+  const rows = [];
+  document.querySelectorAll('#invItemsBody tr').forEach((tr, i) => {
+    rows.push({
+      no: i + 1,
+      desc: tr.querySelector('.inv-item').value.trim(),
+      unit: tr.querySelector('.inv-unit').value.trim(),
+      qtyContract: Number(tr.querySelector('.inv-qty-contract').value) || 0,
+      qtyPrev: Number(tr.querySelector('.inv-qty-prev').value) || 0,
+      qtyCurr: Number(tr.querySelector('.inv-qty-curr').value) || 0,
+      qtyTotal: Number(tr.querySelector('.inv-qty-total').textContent.replace(/,/g, '')) || 0,
+      rate: Number(tr.querySelector('.inv-rate').value) || 0,
+      amtPrev: Number(tr.querySelector('.inv-amt-prev').textContent.replace(/,/g, '')) || 0,
+      amtCurr: Number(tr.querySelector('.inv-amt-curr').textContent.replace(/,/g, '')) || 0,
+      amtTotal: Number(tr.querySelector('.inv-amt-total').textContent.replace(/,/g, '')) || 0,
+    });
+  });
+  if (!rows.length || !rows[0].desc) { alert('أضف بنداً واحداً على الأقل.'); return false; }
+
+  const subtotal = Number(document.getElementById('invSubtotal').textContent.replace(/,/g, '')) || 0;
+  const vat = Number(document.getElementById('invVat').textContent.replace(/,/g, '')) || 0;
+  const total = Number(document.getElementById('invTotal').textContent.replace(/,/g, '')) || 0;
+
+  const invId = uid();
+  const invNumber = document.getElementById('invNumber').value.trim() || ('INV-' + Date.now().toString().slice(-6));
+  const projectSel = document.getElementById('invProject');
+  const projectOpt = projectSel.options[projectSel.selectedIndex];
+  const projectId = projectSel.value;
+  const projectName = projectOpt.dataset.name || projectOpt.textContent;
+  const invData = {
+    number: invNumber,
+    date: document.getElementById('invDate').value,
+    customer: document.getElementById('invCustomer').value.trim(),
+    projectId: projectId,
+    project: projectName,
+    vatNo: document.getElementById('invVatNo').value.trim(),
+    payType: document.getElementById('invPayType').value,
+    notes: document.getElementById('invNotes').value.trim(),
+    items: rows,
+    subtotal, vat, total,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  try {
+    await invoicesCol().doc(invId).set(invData);
+    // Create linked receipt
+    const recId = uid();
+    const recData = {
+      number: 'REC-' + invNumber.replace(/[^0-9]/g, ''),
+      date: invData.date,
+      customer: invData.customer,
+      project: invData.project,
+      amount: total,
+      amountWords: numberToArabicWords(Math.floor(total)),
+      description: 'فاتورة ضريبية رقم ' + invNumber + ' — ' + invData.project,
+      invoiceId: invId,
+      invoiceNumber: invNumber,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    await receiptsCol().doc(recId).set(recData);
+
+    alert('تم حفظ الفاتورة وسند القبض ✅');
+    document.getElementById('invoiceForm').reset();
+    document.getElementById('invItemsBody').innerHTML = '';
+    recalcInvoice();
+    renderInvoicesList();
+  } catch (err) {
+    alert('تعذّر الحفظ: ' + err.message);
+  }
+  return false;
+}
+
+/* ---- Render Invoices List ---- */
+function renderInvoicesList() {
+  const wrap = document.getElementById('invoicesList');
+  if (!wrap) return;
+  invoicesCol().orderBy('createdAt', 'desc').get().then(snap => {
+    if (snap.empty) {
+      wrap.innerHTML = '<div class="empty"><div class="big">🧾</div>لا توجد فواتير بعد.</div>';
+      return;
+    }
+    wrap.innerHTML = snap.docs.map(d => {
+      const inv = d.data();
+      return `<div class="project-card" style="position:relative">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <h3 style="margin:0 0 4px">فاتورة ${esc(inv.number)}</h3>
+            <div class="company">🏢 ${esc(inv.customer)}</div>
+            <div class="meta">📅 ${fmtDate(inv.date)} • ${esc(inv.project)}</div>
+          </div>
+          <div style="text-align:left">
+            <div style="font-size:20px;font-weight:700;color:var(--danger)">${fmt(inv.total)} ر.س</div>
+            <div style="font-size:12px;color:var(--muted)">شامل الضريبة</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px" class="no-print">
+          <button class="btn btn-primary btn-sm" onclick="downloadInvoicePDF('${d.id}')">📄 تنزيل الفاتورة PDF</button>
+          <button class="btn btn-success btn-sm" onclick="downloadReceiptPDF('${d.id}')">🧾 تنزيل سند القبض PDF</button>
+          <button class="btn btn-danger-ghost btn-sm" onclick="deleteInvoice('${d.id}')">حذف</button>
+        </div>
+      </div>`;
+    }).join('');
+  }).catch(() => {
+    wrap.innerHTML = '<div class="empty">تعذّر تحميل الفواتير.</div>';
+  });
+}
+
+function deleteInvoice(id) {
+  if (!confirm('هل تريد حذف هذه الفاتورة وسند القبض المرتبط بها؟')) return;
+  invoicesCol().doc(id).get().then(doc => {
+    const inv = doc.data();
+    const batch = db.batch();
+    batch.delete(invoicesCol().doc(id));
+    if (inv.invoiceNumber) {
+      return receiptsCol().where('invoiceId', '==', id).get().then(snap => {
+        snap.docs.forEach(d => batch.delete(d.ref));
+        return batch.commit();
+      });
+    }
+    return batch.commit();
+  }).then(() => renderInvoicesList()).catch(err => alert('تعذّر الحذف: ' + err.message));
+}
+
+/* ---- PDF Generation (jsPDF + html2canvas) ---- */
+async function downloadInvoicePDF(invId) {
+  const doc = await invoicesCol().doc(invId).get();
+  if (!doc.exists) { alert('الفاتورة غير موجودة.'); return; }
+  const inv = doc.data();
+
+  // Fill template
+  document.getElementById('ptCustomer').textContent = inv.customer;
+  document.getElementById('ptProject').textContent = inv.project;
+  document.getElementById('ptVatNo').textContent = inv.vatNo || '-';
+  document.getElementById('ptInvNo').textContent = inv.number;
+  document.getElementById('ptDate').textContent = fmtDate(inv.date);
+  document.getElementById('ptPayType').textContent = inv.payType;
+  document.getElementById('ptNotes').textContent = inv.notes || '';
+
+  const tbody = document.getElementById('ptItems');
+  tbody.innerHTML = inv.items.map(it => `
+    <tr>
+      <td style="border:1px solid #ccc;padding:6px;text-align:center">${it.no}</td>
+      <td style="border:1px solid #ccc;padding:6px">${esc(it.desc)}</td>
+      <td style="border:1px solid #ccc;padding:6px;text-align:center">${esc(it.unit)}</td>
+      <td style="border:1px solid #ccc;padding:6px;text-align:center">${fmt(it.qtyContract)}</td>
+      <td style="border:1px solid #ccc;padding:6px;text-align:center">${fmt(it.qtyPrev)}</td>
+      <td style="border:1px solid #ccc;padding:6px;text-align:center">${fmt(it.qtyCurr)}</td>
+      <td style="border:1px solid #ccc;padding:6px;text-align:center">${fmt(it.qtyTotal)}</td>
+      <td style="border:1px solid #ccc;padding:6px;text-align:center">${fmt(it.rate)}</td>
+      <td style="border:1px solid #ccc;padding:6px;text-align:center">${fmt(it.amtPrev)}</td>
+      <td style="border:1px solid #ccc;padding:6px;text-align:center">${fmt(it.amtCurr)}</td>
+      <td style="border:1px solid #ccc;padding:6px;text-align:center">${fmt(it.amtTotal)}</td>
+    </tr>
+  `).join('');
+  document.getElementById('ptSubtotal').textContent = fmt(inv.subtotal);
+  document.getElementById('ptVat').textContent = fmt(inv.vat);
+  document.getElementById('ptTotal').textContent = fmt(inv.total);
+
+  const el = document.getElementById('invoicePrintTemplate');
+  el.style.display = 'block';
+  try {
+    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    let heightLeft = imgHeight;
+    let position = 0;
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+    pdf.save(`فاتورة_${inv.number}.pdf`);
+  } catch (err) {
+    console.error(err);
+    alert('تعذّر توليد PDF. جرّب الطباعة بدلاً من ذلك.');
+  }
+  el.style.display = 'none';
+}
+
+async function downloadReceiptPDF(invId) {
+  const recSnap = await receiptsCol().where('invoiceId', '==', invId).limit(1).get();
+  if (recSnap.empty) { alert('سند القبض غير موجود.'); return; }
+  const rec = recSnap.docs[0].data();
+
+  document.getElementById('ptRecNo').textContent = rec.number;
+  document.getElementById('ptRecDate').textContent = fmtDate(rec.date);
+  document.getElementById('ptRecInvNo').textContent = rec.invoiceNumber;
+  document.getElementById('ptRecAmount').textContent = fmt(rec.amount);
+  document.getElementById('ptRecFrom').textContent = rec.customer;
+  document.getElementById('ptRecAmountWords').textContent = rec.amountWords;
+  document.getElementById('ptRecDesc').textContent = rec.description;
+
+  const el = document.getElementById('receiptPrintTemplate');
+  el.style.display = 'block';
+  try {
+    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, Math.min(imgHeight, pageHeight));
+    pdf.save(`سند_قبض_${rec.number}.pdf`);
+  } catch (err) {
+    console.error(err);
+    alert('تعذّر توليد PDF.');
+  }
+  el.style.display = 'none';
+}
+
+/* ---- Arabic number to words (simplified) ---- */
+function numberToArabicWords(n) {
+  if (n === 0) return 'صفر';
+  const ones = ['','واحد','اثنان','ثلاثة','أربعة','خمسة','ستة','سبعة','ثمانية','تسعة','عشرة','أحد عشر','اثنا عشر','ثلاثة عشر','أربعة عشر','خمسة عشر','ستة عشر','سبعة عشر','ثمانية عشر','تسعة عشر'];
+  const tens = ['','','عشرون','ثلاثون','أربعون','خمسون','ستون','سبعون','ثمانون','تسعون'];
+  const hundreds = ['','مائة','مائتان','ثلاثمائة','أربعمائة','خمسمائة','ستمائة','سبعمائة','ثمانمائة','تسعمائة'];
+  const thousands = ['','ألف','ألفان','ثلاثة آلاف','أربعة آلاف','خمسة آلاف','ستة آلاف','سبعة آلاف','ثمانية آلاف','تسعة آلاف'];
+  if (n < 20) return ones[n];
+  if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' و' + ones[n % 10] : '');
+  if (n < 1000) return hundreds[Math.floor(n / 100)] + (n % 100 ? ' و' + numberToArabicWords(n % 100) : '');
+  if (n < 10000) return thousands[Math.floor(n / 1000)] + (n % 1000 ? ' و' + numberToArabicWords(n % 1000) : '');
+  if (n < 1000000) {
+    const k = Math.floor(n / 1000);
+    const rest = n % 1000;
+    let word = k === 1 ? 'ألف' : k === 2 ? 'ألفان' : numberToArabicWords(k) + ' آلاف';
+    return word + (rest ? ' و' + numberToArabicWords(rest) : '');
+  }
+  if (n < 1000000000) {
+    const m = Math.floor(n / 1000000);
+    const rest = n % 1000000;
+    let word = m === 1 ? 'مليون' : m === 2 ? 'مليونان' : numberToArabicWords(m) + ' ملايين';
+    return word + (rest ? ' و' + numberToArabicWords(rest) : '');
+  }
+  return String(n);
+}
+
+/* ================= Tabs (updated) ================= */
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.getElementById('tab-projects').style.display = name === 'projects' ? 'block' : 'none';
   document.getElementById('tab-reports').style.display = name === 'reports' ? 'block' : 'none';
+  document.getElementById('tab-invoices').style.display = name === 'invoices' ? 'block' : 'none';
   if (name === 'reports') refreshReportSelect();
+  if (name === 'invoices') { refreshInvoiceProjectSelect(); renderInvoicesList(); addInvoiceRow(); }
+}
+
+function refreshInvoiceProjectSelect() {
+  const sel = document.getElementById('invProject');
+  if (!sel) return;
+  const opts = state.projects.map(p => `<option value="${esc(p.id)}" data-name="${esc(p.name)}" data-company="${esc(p.company || '')}">${esc(p.name)} — ${esc(p.company || '')}</option>`).join('');
+  sel.innerHTML = '<option value="">اختر مشروعاً...</option>' + opts;
+  // auto-fill customer when project changes
+  sel.onchange = () => {
+    const opt = sel.options[sel.selectedIndex];
+    document.getElementById('invCustomer').value = opt.dataset.company || '';
+  };
 }
 
 /* ================= Projects ================= */
@@ -156,13 +489,13 @@ function renderModal() {
   if (!p.expenses.length) {
     et.innerHTML = '<tr><td style="text-align:center;color:var(--muted)">لا توجد مصروفات</td></tr>';
   } else {
-    et.innerHTML = `<thead><tr><th>التاريخ</th><th>السبب</th><th>العمل المنجز</th><th>المبلغ</th><th class="no-print"></th></tr></thead><tbody>` +
+    et.innerHTML = `<thead><tr><th>التاريخ</th><th>الفئة</th><th>السبب</th><th>العمل المنجز</th><th>المبلغ</th><th class="no-print"></th></tr></thead><tbody>` +
       p.expenses.slice().sort((a,b)=> (a.date<b.date?1:-1)).map(x => `<tr>
-        <td>${fmtDate(x.date)}</td><td>${esc(x.reason)}</td><td>${esc(x.work)||'-'}</td>
+        <td>${fmtDate(x.date)}</td><td>${esc(x.category)||'-'}</td><td>${esc(x.reason)}</td><td>${esc(x.work)||'-'}</td>
         <td class="num neg">${fmt(x.amount)}</td>
         <td class="no-print"><button class="btn btn-danger-ghost btn-sm" onclick="deleteExpense('${x.id}')">حذف</button></td>
       </tr>`).join('') +
-      `</tbody><tfoot><tr><th colspan="3">الإجمالي</th><th class="num neg">${fmt(exp)}</th><th class="no-print"></th></tr></tfoot>`;
+      `</tbody><tfoot><tr><th colspan="4">الإجمالي</th><th class="num neg">${fmt(exp)}</th><th class="no-print"></th></tr></tfoot>`;
   }
 
   // Revenues table
@@ -187,6 +520,7 @@ function addExpense(e) {
   const expenses = (p.expenses || []).concat([{
     id: uid(),
     amount: parseFloat(document.getElementById('eAmount').value),
+    category: document.getElementById('eCategory').value,
     reason: document.getElementById('eReason').value.trim(),
     date: document.getElementById('eDate').value,
     work: document.getElementById('eWork').value.trim()
@@ -286,11 +620,17 @@ function generateReport() {
     </div>
 
     <div class="section-title" style="color:var(--danger)">المصروفات (${exps.length})</div>
+    ${renderCategoryBreakdown(exps)}
     <div class="table-wrap"><table>
-      <thead><tr><th>التاريخ</th><th>السبب</th><th>العمل المنجز</th><th>المبلغ</th></tr></thead>
-      <tbody>${exps.length ? exps.map(x=>`<tr><td>${fmtDate(x.date)}</td><td>${esc(x.reason)}</td><td>${esc(x.work)||'-'}</td><td class="num neg">${fmt(x.amount)}</td></tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted)">لا توجد مصروفات في هذه الفترة</td></tr>'}</tbody>
-      ${exps.length?`<tfoot><tr><th colspan="3">الإجمالي</th><th class="num neg">${fmt(totalExp)}</th></tr></tfoot>`:''}
+      <thead><tr><th>التاريخ</th><th>الفئة</th><th>السبب</th><th>العمل المنجز</th><th>المبلغ</th></tr></thead>
+      <tbody>${exps.length ? exps.map(x=>`<tr><td>${fmtDate(x.date)}</td><td>${esc(x.category)||'-'}</td><td>${esc(x.reason)}</td><td>${esc(x.work)||'-'}</td><td class="num neg">${fmt(x.amount)}</td></tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted)">لا توجد مصروفات في هذه الفترة</td></tr>'}</tbody>
+      ${exps.length?`<tfoot><tr><th colspan="4">الإجمالي</th><th class="num neg">${fmt(totalExp)}</th></tr></tfoot>`:''}
     </table></div>
+
+    <div class="chart-wrap">
+      <div class="section-title">توزيع المصروفات حسب الفئة</div>
+      <div class="chart-box"><canvas id="categoryChartCanvas"></canvas></div>
+    </div>
 
     <div class="section-title" style="color:var(--success)">الإيرادات (${revs.length})</div>
     <div class="table-wrap"><table>
@@ -301,6 +641,60 @@ function generateReport() {
   </div>`;
 
   renderReportChart(exps, revs, totalExp, totalRev);
+  renderCategoryPie(exps);
+}
+
+/* ---- Category Breakdown & Pie Chart ---- */
+function groupByCategory(exps) {
+  const map = {};
+  exps.forEach(x => {
+    const cat = x.category || 'أخرى';
+    map[cat] = (map[cat] || 0) + Number(x.amount || 0);
+  });
+  return Object.entries(map).sort((a, b) => b[1] - a[1]);
+}
+function catBadge(cat) {
+  const map = { 'مواد': '#9333ea', 'أجور': '#ca8a04', 'معدات': '#2563eb', 'أخرى': '#6b7280' };
+  const color = map[cat] || '#6b7280';
+  return `<span style="display:inline-block;background:${color}1a;color:${color};border:1px solid ${color}33;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:600">${esc(cat)}</span>`;
+}
+function renderCategoryBreakdown(exps) {
+  if (!exps.length) return '';
+  const total = sum(exps, 'amount');
+  const rows = groupByCategory(exps);
+  return `<div class="table-wrap" style="margin-bottom:16px"><table style="font-size:13px">
+    <thead><tr><th>الفئة</th><th>المجموع</th><th>النسبة</th></tr></thead>
+    <tbody>${rows.map(([cat, val]) => {
+      const pct = total ? ((val / total) * 100).toFixed(1) + '%' : '0%';
+      return `<tr><td>${catBadge(cat)}</td><td class="num">${fmt(val)}</td><td>${pct}</td></tr>`;
+    }).join('')}</tbody>
+    <tfoot><tr><th>الكل</th><th class="num">${fmt(total)}</th><th>100%</th></tr></tfoot>
+  </table></div>`;
+}
+let catChart = null;
+function renderCategoryPie(exps) {
+  const canvas = document.getElementById('categoryChartCanvas');
+  if (!canvas) return;
+  if (catChart) { catChart.destroy(); catChart = null; }
+  if (typeof Chart === 'undefined' || !exps.length) {
+    canvas.closest('.chart-wrap').style.display = 'none';
+    return;
+  }
+  canvas.closest('.chart-wrap').style.display = 'block';
+  const rows = groupByCategory(exps);
+  const colors = { 'مواد': '#9333ea', 'أجور': '#ca8a04', 'معدات': '#2563eb', 'أخرى': '#6b7280' };
+  const bg = rows.map(([cat]) => colors[cat] || '#6b7280');
+  catChart = new Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
+    data: { labels: rows.map(r => r[0]), datasets: [{ data: rows.map(r => r[1]), backgroundColor: bg, borderWidth: 2, borderColor: '#fff' }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { font: { family: 'Cairo', size: 13 } } },
+        tooltip: { titleFont: { family: 'Cairo' }, bodyFont: { family: 'Cairo' }, callbacks: { label: c => `${c.label}: ${fmt(c.parsed)}` } }
+      }
+    }
+  });
 }
 
 /* ---- Report chart (Chart.js) ---- */
@@ -409,11 +803,11 @@ function exportReportExcel() {
   wsS['!cols'] = [{ wch: 18 }, { wch: 30 }];
   XLSX.utils.book_append_sheet(wb, wsS, 'الملخص');
 
-  const expRows = [['التاريخ', 'السبب', 'العمل المنجز', 'المبلغ']];
-  r.exps.forEach(x => expRows.push([fmtDate(x.date), x.reason, x.work || '', Number(x.amount)]));
-  expRows.push(['', '', 'الإجمالي', r.totalExp]);
+  const expRows = [['التاريخ', 'الفئة', 'السبب', 'العمل المنجز', 'المبلغ']];
+  r.exps.forEach(x => expRows.push([fmtDate(x.date), x.category || '', x.reason, x.work || '', Number(x.amount)]));
+  expRows.push(['', '', '', 'الإجمالي', r.totalExp]);
   const wsE = XLSX.utils.aoa_to_sheet(expRows);
-  wsE['!cols'] = [{ wch: 14 }, { wch: 24 }, { wch: 24 }, { wch: 14 }];
+  wsE['!cols'] = [{ wch: 14 }, { wch: 12 }, { wch: 24 }, { wch: 24 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(wb, wsE, 'المصروفات');
 
   const revRows = [['رقم الدفعة', 'التاريخ', 'المبلغ']];
@@ -440,9 +834,9 @@ function exportReportCSV(r, fileBase) {
   lines.push(['الفترة', r.rangeLabel].map(q).join(','));
   lines.push('');
   lines.push(['المصروفات'].map(q).join(','));
-  lines.push(['التاريخ', 'السبب', 'العمل المنجز', 'المبلغ'].map(q).join(','));
-  r.exps.forEach(x => lines.push([fmtDate(x.date), x.reason, x.work || '', x.amount].map(q).join(',')));
-  lines.push(['', '', 'الإجمالي', r.totalExp].map(q).join(','));
+  lines.push(['التاريخ', 'الفئة', 'السبب', 'العمل المنجز', 'المبلغ'].map(q).join(','));
+  r.exps.forEach(x => lines.push([fmtDate(x.date), x.category || '', x.reason, x.work || '', x.amount].map(q).join(',')));
+  lines.push(['', '', '', 'الإجمالي', r.totalExp].map(q).join(','));
   lines.push('');
   lines.push(['الإيرادات'].map(q).join(','));
   lines.push(['رقم الدفعة', 'التاريخ', 'المبلغ'].map(q).join(','));

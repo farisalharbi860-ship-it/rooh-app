@@ -130,6 +130,11 @@ tr:hover td { background: #f8fafc; }
 .section-title { font-size:15px; font-weight:700; margin:18px 0 10px; display:flex; align-items:center; gap:8px; }
 .chart-wrap { margin: 6px 0 4px; }
 .chart-box { position: relative; height: 300px; background:#fff; border:1px solid var(--border); border-radius:12px; padding:14px; }
+#invItemsTable input { border: 1px solid transparent; background: transparent; text-align: center; width: 100%; font-family: inherit; font-size: 13px; padding: 4px; }
+#invItemsTable input:focus { border-color: var(--primary); background: #fff; border-radius: 4px; outline: none; }
+#invItemsTable td { padding: 6px 4px; font-size: 13px; }
+#invItemsTable th { font-size: 11px; padding: 8px 4px; white-space: nowrap; }
+
 @media print {
   body { background:#fff; }
   .no-print { display:none !important; }
