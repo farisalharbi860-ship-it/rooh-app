@@ -217,11 +217,13 @@ async function createInvoice(e) {
   return false;
 }
 
-/* ---- Render Invoices List ---- */
-function renderInvoicesList() {
+/* ---- Render Invoices List (real-time) ---- */
+let invoicesUnsub = null;
+function listenInvoices() {
+  if (invoicesUnsub) { invoicesUnsub(); invoicesUnsub = null; }
   const wrap = document.getElementById('invoicesList');
   if (!wrap) return;
-  invoicesCol().orderBy('createdAt', 'desc').get().then(snap => {
+  invoicesUnsub = invoicesCol().orderBy('createdAt', 'desc').onSnapshot(snap => {
     if (snap.empty) {
       wrap.innerHTML = '<div class="empty"><div class="big">🧾</div>لا توجد فواتير بعد.</div>';
       return;
@@ -247,32 +249,36 @@ function renderInvoicesList() {
         </div>
       </div>`;
     }).join('');
-  }).catch(() => {
-    wrap.innerHTML = '<div class="empty">تعذّر تحميل الفواتير.</div>';
+  }, err => {
+    wrap.innerHTML = '<div class="empty">تعذّر تحميل الفواتير: ' + esc(err.message) + '</div>';
   });
+}
+
+function renderInvoicesList() {
+  listenInvoices();
 }
 
 function deleteInvoice(id) {
   if (!confirm('هل تريد حذف هذه الفاتورة وسند القبض المرتبط بها؟')) return;
-  invoicesCol().doc(id).get().then(doc => {
-    const inv = doc.data();
+  invoicesCol().doc(id).delete().then(() => {
+    return receiptsCol().where('invoiceId', '==', id).get();
+  }).then(snap => {
     const batch = db.batch();
-    batch.delete(invoicesCol().doc(id));
-    if (inv.invoiceNumber) {
-      return receiptsCol().where('invoiceId', '==', id).get().then(snap => {
-        snap.docs.forEach(d => batch.delete(d.ref));
-        return batch.commit();
-      });
-    }
+    snap.docs.forEach(d => batch.delete(d.ref));
     return batch.commit();
-  }).then(() => renderInvoicesList()).catch(err => alert('تعذّر الحذف: ' + err.message));
+  }).catch(err => alert('تعذّر الحذف: ' + err.message));
 }
 
 /* ---- PDF Generation (jsPDF + html2canvas) ---- */
 async function downloadInvoicePDF(invId) {
-  const doc = await invoicesCol().doc(invId).get();
-  if (!doc.exists) { alert('الفاتورة غير موجودة.'); return; }
-  const inv = doc.data();
+  // Use onSnapshot to get invoice data reliably
+  const inv = await new Promise((resolve, reject) => {
+    const unsub = invoicesCol().doc(invId).onSnapshot(doc => {
+      if (doc.exists) { resolve(doc.data()); unsub(); }
+      else { reject(new Error('not_found')); }
+    }, err => reject(err));
+    setTimeout(() => { unsub(); reject(new Error('timeout')); }, 10000);
+  });
 
   // Fill template
   document.getElementById('ptCustomer').textContent = inv.customer;
@@ -333,9 +339,12 @@ async function downloadInvoicePDF(invId) {
 }
 
 async function downloadReceiptPDF(invId) {
-  const recSnap = await receiptsCol().where('invoiceId', '==', invId).limit(1).get();
-  if (recSnap.empty) { alert('سند القبض غير موجود.'); return; }
-  const rec = recSnap.docs[0].data();
+  const rec = await new Promise((resolve, reject) => {
+    const unsub = receiptsCol().where('invoiceId', '==', invId).limit(1).onSnapshot(snap => {
+      if (!snap.empty) { resolve(snap.docs[0].data()); unsub(); }
+    }, err => reject(err));
+    setTimeout(() => { unsub(); reject(new Error('timeout')); }, 10000);
+  });
 
   document.getElementById('ptRecNo').textContent = rec.number;
   document.getElementById('ptRecDate').textContent = fmtDate(rec.date);

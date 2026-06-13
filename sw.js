@@ -1,5 +1,5 @@
 /* Service Worker - مؤسسة روح المنافسة المحلية */
-const CACHE = 'rooh-app-v6';
+const CACHE = 'rooh-app-v7';
 
 /* ملفات التطبيق الأساسية + المكتبات الخارجية لتشغيله دون إنترنت */
 const ASSETS = [
