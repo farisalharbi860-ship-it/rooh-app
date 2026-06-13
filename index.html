@@ -177,42 +177,83 @@
 </div><!-- /appRoot -->
 
 <!-- ===== INVOICE PRINT TEMPLATE (hidden) ===== -->
-<div id="invoicePrintTemplate" style="display:none;width:210mm;padding:20px;font-family:Cairo,sans-serif;background:#fff;color:#000;direction:rtl">
-  <div style="text-align:center;border-bottom:2px solid #1e3a8a;padding-bottom:15px;margin-bottom:20px">
-    <h2 style="margin:0;color:#1e3a8a">مؤسسة روح المنافسة المحلية</h2>
-    <p style="margin:4px 0;font-size:13px">تجارة المقاولات العامة - رقم السجل التجاري: 4030379558</p>
-    <p style="margin:4px 0;font-size:13px">الرقم الضريبي: 311392255700003</p>
-    <p style="margin:4px 0;font-size:13px">الهاتف: 0500908917 - 0500908916 | البريد: info@rooh-almonafsa.com</p>
+<div id="invoicePrintTemplate" style="display:none;width:210mm;padding:15mm;font-family:Cairo,sans-serif;background:#fff;color:#000;direction:rtl">
+  <div style="text-align:center;margin-bottom:10px">
+    <div style="font-size:24px;font-weight:bold">فاتورة ضريبية</div>
+    <div style="font-size:14px">Taxable Invoice</div>
   </div>
-  <div style="display:flex;justify-content:space-between;margin-bottom:20px">
-    <div>
-      <p><strong>العميل:</strong> <span id="ptCustomer"></span></p>
-      <p><strong>المشروع:</strong> <span id="ptProject"></span></p>
-      <p><strong>الرقم الضريبي للعميل:</strong> <span id="ptVatNo"></span></p>
-    </div>
-    <div style="text-align:left">
-      <p><strong>رقم الفاتورة:</strong> <span id="ptInvNo"></span></p>
-      <p><strong>التاريخ:</strong> <span id="ptDate"></span></p>
-      <p><strong>طريقة الدفع:</strong> <span id="ptPayType"></span></p>
+
+  <div style="border:2px solid #000;padding:10px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div style="font-size:13px">
+        <p style="margin:3px 0"><strong>العمــيل :</strong> <span id="ptCustomer"></span></p>
+        <p style="margin:3px 0"><strong>المشروع :</strong> <span id="ptProject"></span></p>
+        <p style="margin:3px 0"><strong>الرقم الضريبي :</strong> <span id="ptVatNo"></span></p>
+      </div>
+      <div style="text-align:center">
+        <h3 style="margin:0;color:#1e3a8a;font-size:16px">مؤسسة روح المنافسة المحلية</h3>
+        <p style="margin:2px 0;font-size:11px">تجارة المقاولات العامة - رقم السجل التجاري: 4030379558</p>
+        <p style="margin:2px 0;font-size:11px">الرقم الضريبي: 311392255700003</p>
+        <p style="margin:2px 0;font-size:11px">الهاتف: 0500908917 - 0500908916</p>
+      </div>
+      <div style="font-size:13px;text-align:left">
+        <p style="margin:3px 0"><strong>سجل تجاري:</strong> 4030379558</p>
+        <p style="margin:3px 0"><strong>C.R. No</strong></p>
+      </div>
     </div>
   </div>
-  <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:15px" border="1">
+
+  <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:10px;flex-wrap:wrap">
+    <div><strong>تاريخ الفاتورة :</strong> <span id="ptDate"></span></div>
+    <div><strong>Inv No.</strong> <span id="ptInvNo"></span></div>
+    <div><strong>المستخدم :</strong> <span id="ptUser">مدير</span></div>
+    <div><strong>طريقة الدفع :</strong> <span id="ptPayType"></span></div>
+  </div>
+
+  <table style="width:100%;border-collapse:collapse;font-size:12px" border="1">
     <thead>
-      <tr style="background:#1e3a8a;color:#fff">
-        <th>م</th><th>بيان الأعمال</th><th>الوحدة</th><th>الكمية حسب العقد</th>
-        <th>الكمية السابقة</th><th>الكمية الحالية</th><th>إجمالي الكمية</th>
-        <th>الفئة بالريال</th><th>المبلغ السابق</th><th>المبلغ الحالي</th><th>إجمالي المبلغ</th>
+      <tr style="background:#e8e8e8;font-weight:bold">
+        <th style="padding:5px;border:1px solid #000">م</th>
+        <th style="padding:5px;border:1px solid #000">بيان الأعمال</th>
+        <th style="padding:5px;border:1px solid #000">الوحدة</th>
+        <th style="padding:5px;border:1px solid #000">الكمية حسب العقد</th>
+        <th style="padding:5px;border:1px solid #000">الكمية السابقة</th>
+        <th style="padding:5px;border:1px solid #000">الكمية الحالية</th>
+        <th style="padding:5px;border:1px solid #000">إجمالي الكمية</th>
+        <th style="padding:5px;border:1px solid #000">الفئة بالريال</th>
+        <th style="padding:5px;border:1px solid #000">المبلغ السابق</th>
+        <th style="padding:5px;border:1px solid #000">المبلغ الحالي</th>
+        <th style="padding:5px;border:1px solid #000">إجمالي المبلغ</th>
       </tr>
     </thead>
     <tbody id="ptItems"></tbody>
     <tfoot>
-      <tr><td colspan="10" style="text-align:left"><strong>المجموع</strong></td><td id="ptSubtotal"></td></tr>
-      <tr><td colspan="10" style="text-align:left"><strong>ضريبة القيمة المضافة 15%</strong></td><td id="ptVat"></td></tr>
-      <tr><td colspan="10" style="text-align:left"><strong>المجموع الصافي</strong></td><td id="ptTotal"></td></tr>
+      <tr>
+        <td colspan="10" style="text-align:left;padding:5px;border:1px solid #000"><strong>المجموع :</strong></td>
+        <td style="padding:5px;border:1px solid #000" id="ptSubtotal"></td>
+      </tr>
+      <tr>
+        <td colspan="10" style="text-align:left;padding:5px;border:1px solid #000"><strong>ضريبة القيمة المضافة (15%) :</strong></td>
+        <td style="padding:5px;border:1px solid #000" id="ptVat"></td>
+      </tr>
+      <tr>
+        <td colspan="10" style="text-align:left;padding:5px;border:1px solid #000"><strong>المجموع الصافي :</strong></td>
+        <td style="padding:5px;border:1px solid #000" id="ptTotal"></td>
+      </tr>
     </tfoot>
   </table>
-  <p id="ptNotes" style="font-size:13px;margin-bottom:30px"></p>
-  <div style="display:flex;justify-content:space-between;margin-top:40px;font-size:13px">
+
+  <div style="margin-top:10px;font-size:12px"><strong>ملاحظـــــــات:</strong> <span id="ptNotes"></span></div>
+
+  <div style="margin-top:12px;font-size:14px;font-weight:bold;text-align:center">
+    فقط <span id="ptTotalWords"></span> ريال سعودي لا غير
+  </div>
+
+  <div style="text-align:center;margin-top:15px">
+    <svg id="ptBarcode"></svg>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;margin-top:30px;font-size:12px">
     <div>توقيع المستلم: _________________</div>
     <div>توقيع المحاسب: _________________</div>
     <div>ختم الشركة: _________________</div>
@@ -220,27 +261,42 @@
 </div>
 
 <!-- ===== RECEIPT PRINT TEMPLATE (hidden) ===== -->
-<div id="receiptPrintTemplate" style="display:none;width:210mm;padding:20px;font-family:Cairo,sans-serif;background:#fff;color:#000;direction:rtl">
-  <div style="text-align:center;border-bottom:2px solid #1e3a8a;padding-bottom:15px;margin-bottom:20px">
-    <h2 style="margin:0;color:#1e3a8a">مؤسسة روح المنافسة المحلية</h2>
-    <p style="margin:4px 0;font-size:13px">تجارة المقاولات العامة - رقم السجل التجاري: 4030379558</p>
-    <p style="margin:4px 0;font-size:13px">الرقم الضريبي: 311392255700003</p>
+<div id="receiptPrintTemplate" style="display:none;width:210mm;padding:15mm;font-family:Cairo,sans-serif;background:#fff;color:#000;direction:rtl">
+  <div style="text-align:center;margin-bottom:10px">
+    <div style="font-size:22px;font-weight:bold">سند قبض</div>
+    <div style="font-size:14px">Receipt Voucher</div>
   </div>
-  <h3 style="text-align:center;margin-bottom:20px">سند قبض</h3>
-  <div style="display:flex;justify-content:space-between;margin-bottom:20px">
-    <div>
-      <p><strong>رقم السند:</strong> <span id="ptRecNo"></span></p>
-      <p><strong>التاريخ:</strong> <span id="ptRecDate"></span></p>
-    </div>
-    <div style="text-align:left">
-      <p><strong>رقم الفاتورة:</strong> <span id="ptRecInvNo"></span></p>
-      <p><strong>المبلغ:</strong> <span id="ptRecAmount"></span> ر.س</p>
+
+  <div style="border:2px solid #000;padding:10px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div style="font-size:13px">
+        <p style="margin:3px 0"><strong>رقم السند:</strong> <span id="ptRecNo"></span></p>
+        <p style="margin:3px 0"><strong>التاريخ:</strong> <span id="ptRecDate"></span></p>
+      </div>
+      <div style="text-align:center">
+        <h3 style="margin:0;color:#1e3a8a;font-size:16px">مؤسسة روح المنافسة المحلية</h3>
+        <p style="margin:2px 0;font-size:11px">تجارة المقاولات العامة - رقم السجل التجاري: 4030379558</p>
+        <p style="margin:2px 0;font-size:11px">الرقم الضريبي: 311392255700003</p>
+        <p style="margin:2px 0;font-size:11px">الهاتف: 0500908917 - 0500908916</p>
+      </div>
+      <div style="font-size:13px;text-align:left">
+        <p style="margin:3px 0"><strong>رقم الفاتورة:</strong> <span id="ptRecInvNo"></span></p>
+        <p style="margin:3px 0"><strong>المبلغ:</strong> <span id="ptRecAmount"></span> ر.س</p>
+      </div>
     </div>
   </div>
-  <p><strong>استلمنا من السيد / شركة:</strong> <span id="ptRecFrom"></span></p>
-  <p><strong>مبلغ وقدره:</strong> <span id="ptRecAmountWords"></span> ريال سعودي فقط لا غير.</p>
-  <p><strong>وذلك عن:</strong> <span id="ptRecDesc"></span></p>
-  <div style="display:flex;justify-content:space-between;margin-top:50px;font-size:13px">
+
+  <div style="font-size:14px;margin-bottom:20px">
+    <p><strong>استلمنا من السيد / شركة:</strong> <span id="ptRecFrom"></span></p>
+    <p><strong>مبلغ وقدره:</strong> <span id="ptRecAmountWords"></span> ريال سعودي فقط لا غير.</p>
+    <p><strong>وذلك عن:</strong> <span id="ptRecDesc"></span></p>
+  </div>
+
+  <div style="text-align:center;margin-top:10px">
+    <svg id="ptRecBarcode"></svg>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;margin-top:40px;font-size:13px">
     <div>اسم المستلم: _________________</div>
     <div>التوقيع: _________________</div>
     <div>ختم الشركة: _________________</div>
@@ -321,6 +377,7 @@
 <script src="firebase-config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

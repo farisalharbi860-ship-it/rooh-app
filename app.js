@@ -261,11 +261,15 @@ function renderInvoicesList() {
 function deleteInvoice(id) {
   if (!confirm('هل تريد حذف هذه الفاتورة وسند القبض المرتبط بها؟')) return;
   invoicesCol().doc(id).delete().then(() => {
-    return receiptsCol().where('invoiceId', '==', id).get();
-  }).then(snap => {
-    const batch = db.batch();
-    snap.docs.forEach(d => batch.delete(d.ref));
-    return batch.commit();
+    return new Promise((resolve, reject) => {
+      const unsub = receiptsCol().where('invoiceId', '==', id).onSnapshot(snap => {
+        const batch = db.batch();
+        snap.docs.forEach(d => batch.delete(d.ref));
+        batch.commit().then(resolve).catch(reject);
+        unsub();
+      }, err => { unsub(); reject(err); });
+      setTimeout(() => { unsub(); reject(new Error('timeout')); }, 10000);
+    });
   }).catch(err => alert('تعذّر الحذف: ' + err.message));
 }
 
@@ -288,26 +292,40 @@ async function downloadInvoicePDF(invId) {
   document.getElementById('ptDate').textContent = fmtDate(inv.date);
   document.getElementById('ptPayType').textContent = inv.payType;
   document.getElementById('ptNotes').textContent = inv.notes || '';
+  document.getElementById('ptTotalWords').textContent = numberToArabicWords(inv.total || 0);
 
   const tbody = document.getElementById('ptItems');
   tbody.innerHTML = inv.items.map(it => `
     <tr>
-      <td style="border:1px solid #ccc;padding:6px;text-align:center">${it.no}</td>
-      <td style="border:1px solid #ccc;padding:6px">${esc(it.desc)}</td>
-      <td style="border:1px solid #ccc;padding:6px;text-align:center">${esc(it.unit)}</td>
-      <td style="border:1px solid #ccc;padding:6px;text-align:center">${fmt(it.qtyContract)}</td>
-      <td style="border:1px solid #ccc;padding:6px;text-align:center">${fmt(it.qtyPrev)}</td>
-      <td style="border:1px solid #ccc;padding:6px;text-align:center">${fmt(it.qtyCurr)}</td>
-      <td style="border:1px solid #ccc;padding:6px;text-align:center">${fmt(it.qtyTotal)}</td>
-      <td style="border:1px solid #ccc;padding:6px;text-align:center">${fmt(it.rate)}</td>
-      <td style="border:1px solid #ccc;padding:6px;text-align:center">${fmt(it.amtPrev)}</td>
-      <td style="border:1px solid #ccc;padding:6px;text-align:center">${fmt(it.amtCurr)}</td>
-      <td style="border:1px solid #ccc;padding:6px;text-align:center">${fmt(it.amtTotal)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${it.no}</td>
+      <td style="border:1px solid #000;padding:5px;font-size:12px">${esc(it.desc)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${esc(it.unit)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.qtyContract)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.qtyPrev)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.qtyCurr)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.qtyTotal)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.rate)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.amtPrev)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.amtCurr)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.amtTotal)}</td>
     </tr>
   `).join('');
   document.getElementById('ptSubtotal').textContent = fmt(inv.subtotal);
   document.getElementById('ptVat').textContent = fmt(inv.vat);
   document.getElementById('ptTotal').textContent = fmt(inv.total);
+
+  /* barcode */
+  try {
+    if (window.JsBarcode) {
+      JsBarcode("#ptBarcode", inv.number || "000", {
+        format: "CODE128",
+        displayValue: true,
+        fontSize: 13,
+        margin: 5,
+        height: 40
+      });
+    }
+  } catch(e) { console.warn('barcode error', e); }
 
   const el = document.getElementById('invoicePrintTemplate');
   el.style.display = 'block';
@@ -354,6 +372,19 @@ async function downloadReceiptPDF(invId) {
   document.getElementById('ptRecAmountWords').textContent = rec.amountWords;
   document.getElementById('ptRecDesc').textContent = rec.description;
 
+  /* barcode for receipt */
+  try {
+    if (window.JsBarcode) {
+      JsBarcode("#ptRecBarcode", rec.number || "REC-000", {
+        format: "CODE128",
+        displayValue: true,
+        fontSize: 13,
+        margin: 5,
+        height: 40
+      });
+    }
+  } catch(e) { console.warn('barcode error', e); }
+
   const el = document.getElementById('receiptPrintTemplate');
   el.style.display = 'block';
   try {
@@ -377,25 +408,38 @@ async function downloadReceiptPDF(invId) {
 /* ---- Arabic number to words (simplified) ---- */
 function numberToArabicWords(n) {
   if (n === 0) return 'صفر';
+  // Handle decimals (halalas)
+  const hasDecimal = n % 1 !== 0;
+  const riyals = Math.floor(n);
+  const halalas = Math.round((n - riyals) * 100);
+  let riyalWords = _intToArabicWords(riyals);
+  let result = riyalWords + ' ﷼ سعودي';
+  if (halalas > 0) {
+    result += ' و ' + _intToArabicWords(halalas) + ' هللة';
+  }
+  return result;
+}
+function _intToArabicWords(n) {
+  if (n === 0) return 'صفر';
   const ones = ['','واحد','اثنان','ثلاثة','أربعة','خمسة','ستة','سبعة','ثمانية','تسعة','عشرة','أحد عشر','اثنا عشر','ثلاثة عشر','أربعة عشر','خمسة عشر','ستة عشر','سبعة عشر','ثمانية عشر','تسعة عشر'];
   const tens = ['','','عشرون','ثلاثون','أربعون','خمسون','ستون','سبعون','ثمانون','تسعون'];
   const hundreds = ['','مائة','مائتان','ثلاثمائة','أربعمائة','خمسمائة','ستمائة','سبعمائة','ثمانمائة','تسعمائة'];
   const thousands = ['','ألف','ألفان','ثلاثة آلاف','أربعة آلاف','خمسة آلاف','ستة آلاف','سبعة آلاف','ثمانية آلاف','تسعة آلاف'];
   if (n < 20) return ones[n];
-  if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' و' + ones[n % 10] : '');
-  if (n < 1000) return hundreds[Math.floor(n / 100)] + (n % 100 ? ' و' + numberToArabicWords(n % 100) : '');
-  if (n < 10000) return thousands[Math.floor(n / 1000)] + (n % 1000 ? ' و' + numberToArabicWords(n % 1000) : '');
+  if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' و ' + ones[n % 10] : '');
+  if (n < 1000) return hundreds[Math.floor(n / 100)] + (n % 100 ? ' و ' + _intToArabicWords(n % 100) : '');
+  if (n < 10000) return thousands[Math.floor(n / 1000)] + (n % 1000 ? ' و ' + _intToArabicWords(n % 1000) : '');
   if (n < 1000000) {
     const k = Math.floor(n / 1000);
     const rest = n % 1000;
-    let word = k === 1 ? 'ألف' : k === 2 ? 'ألفان' : numberToArabicWords(k) + ' آلاف';
-    return word + (rest ? ' و' + numberToArabicWords(rest) : '');
+    let word = k === 1 ? 'ألف' : k === 2 ? 'ألفان' : _intToArabicWords(k) + ' آلاف';
+    return word + (rest ? ' و ' + _intToArabicWords(rest) : '');
   }
   if (n < 1000000000) {
     const m = Math.floor(n / 1000000);
     const rest = n % 1000000;
-    let word = m === 1 ? 'مليون' : m === 2 ? 'مليونان' : numberToArabicWords(m) + ' ملايين';
-    return word + (rest ? ' و' + numberToArabicWords(rest) : '');
+    let word = m === 1 ? 'مليون' : m === 2 ? 'مليونان' : _intToArabicWords(m) + ' ملايين';
+    return word + (rest ? ' و ' + _intToArabicWords(rest) : '');
   }
   return String(n);
 }
