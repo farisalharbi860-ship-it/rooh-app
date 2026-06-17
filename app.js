@@ -230,6 +230,11 @@ function listenInvoices() {
     }
     wrap.innerHTML = snap.docs.map(d => {
       const inv = d.data();
+      const items = inv.items || [];
+      let subtotal = 0;
+      items.forEach(it => subtotal += Number(it.amtTotal) || 0);
+      const vat = subtotal * 0.15;
+      const total = subtotal + vat;
       return `<div class="project-card" style="position:relative">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div>
@@ -238,7 +243,7 @@ function listenInvoices() {
             <div class="meta">📅 ${fmtDate(inv.date)} • ${esc(inv.project)}</div>
           </div>
           <div style="text-align:left">
-            <div style="font-size:20px;font-weight:700;color:var(--danger)">${fmt(inv.total)} ر.س</div>
+            <div style="font-size:20px;font-weight:700;color:var(--danger)">${fmt(total)} ر.س</div>
             <div style="font-size:12px;color:var(--muted)">شامل الضريبة</div>
           </div>
         </div>
@@ -273,6 +278,22 @@ function deleteInvoice(id) {
   }).catch(err => alert('تعذّر الحذف: ' + err.message));
 }
 
+/* ---- Image helper for CORS ---- */
+function loadImageAsBase64(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.width; c.height = img.height;
+      c.getContext('2d').drawImage(img, 0, 0);
+      resolve(c.toDataURL());
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 /* ---- PDF Generation (jsPDF + html2canvas) ---- */
 async function downloadInvoicePDF(invId) {
   // Use onSnapshot to get invoice data reliably
@@ -284,6 +305,15 @@ async function downloadInvoicePDF(invId) {
     setTimeout(() => { unsub(); reject(new Error('timeout')); }, 10000);
   });
 
+  // Recalculate totals from items (fix for old invoices saved with zero)
+  let subtotal = 0;
+  const items = (inv.items || []);
+  items.forEach(it => {
+    subtotal += Number(it.amtTotal) || 0;
+  });
+  const vat = subtotal * 0.15;
+  const total = subtotal + vat;
+
   // Fill template
   document.getElementById('ptCustomer').textContent = inv.customer;
   document.getElementById('ptProject').textContent = inv.project;
@@ -292,10 +322,10 @@ async function downloadInvoicePDF(invId) {
   document.getElementById('ptDate').textContent = fmtDate(inv.date);
   document.getElementById('ptPayType').textContent = inv.payType;
   document.getElementById('ptNotes').textContent = inv.notes || '';
-  document.getElementById('ptTotalWords').textContent = numberToArabicWords(inv.total || 0);
+  document.getElementById('ptTotalWords').textContent = numberToArabicWords(total || 0);
 
   const tbody = document.getElementById('ptItems');
-  tbody.innerHTML = inv.items.map(it => `
+  tbody.innerHTML = items.map(it => `
     <tr>
       <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${it.no}</td>
       <td style="border:1px solid #000;padding:5px;font-size:12px">${esc(it.desc)}</td>
@@ -310,9 +340,9 @@ async function downloadInvoicePDF(invId) {
       <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.amtTotal)}</td>
     </tr>
   `).join('');
-  document.getElementById('ptSubtotal').textContent = fmt(inv.subtotal);
-  document.getElementById('ptVat').textContent = fmt(inv.vat);
-  document.getElementById('ptTotal').textContent = fmt(inv.total);
+  document.getElementById('ptSubtotal').textContent = fmt(subtotal);
+  document.getElementById('ptVat').textContent = fmt(vat);
+  document.getElementById('ptTotal').textContent = fmt(total);
 
   /* barcode */
   try {
@@ -328,6 +358,11 @@ async function downloadInvoicePDF(invId) {
   } catch(e) { console.warn('barcode error', e); }
 
   const el = document.getElementById('invoicePrintTemplate');
+  /* preload logo as base64 for html2canvas CORS */
+  const logoImg = el.querySelector('img[src*="logo"]');
+  if (logoImg) {
+    try { logoImg.src = await loadImageAsBase64(logoImg.src); } catch(e) {}
+  }
   el.style.display = 'block';
   try {
     const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
@@ -386,6 +421,10 @@ async function downloadReceiptPDF(invId) {
   } catch(e) { console.warn('barcode error', e); }
 
   const el = document.getElementById('receiptPrintTemplate');
+  const logoImg = el.querySelector('img[src*="logo"]');
+  if (logoImg) {
+    try { logoImg.src = await loadImageAsBase64(logoImg.src); } catch(e) {}
+  }
   el.style.display = 'block';
   try {
     const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
