@@ -60,7 +60,7 @@ function autoBackup() {
 
 /* ================= Helpers ================= */
 function fmt(n) {
-  return Number(n || 0).toLocaleString('ar-EG', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 function fmtDate(d) {
   if (!d) return '-';
