@@ -59,8 +59,19 @@ function autoBackup() {
 }
 
 /* ================= Helpers ================= */
+function parseNum(v) {
+  if (typeof v === 'number') return isNaN(v) ? 0 : v;
+  if (v == null) return 0;
+  // Remove formatting commas
+  let s = String(v).replace(/,/g, '');
+  // Convert Arabic numerals to Western
+  const arToEn = { '\u0660':'0','\u0661':'1','\u0662':'2','\u0663':'3','\u0664':'4','\u0665':'5','\u0666':'6','\u0667':'7','\u0668':'8','\u0669':'9' };
+  s = s.replace(/[\u0660-\u0669]/g, c => arToEn[c] || c);
+  const n = Number(s);
+  return isNaN(n) ? 0 : n;
+}
 function fmt(n) {
-  return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return parseNum(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 function fmtDate(d) {
   if (!d) return '-';
@@ -146,27 +157,34 @@ function recalcInvoice() {
 /* ---- Create & Save Invoice ---- */
 async function createInvoice(e) {
   e.preventDefault();
+  let subtotal = 0;
   const rows = [];
   document.querySelectorAll('#invItemsBody tr').forEach((tr, i) => {
+    const qtyContract = parseNum(tr.querySelector('.inv-qty-contract').value);
+    const qtyPrev = parseNum(tr.querySelector('.inv-qty-prev').value);
+    const qtyCurr = parseNum(tr.querySelector('.inv-qty-curr').value);
+    const rate = parseNum(tr.querySelector('.inv-rate').value);
+    const qtyTotal = qtyPrev + qtyCurr;
+    const amtPrev = qtyPrev * rate;
+    const amtCurr = qtyCurr * rate;
+    const amtTotal = amtPrev + amtCurr;
+    subtotal += amtTotal;
     rows.push({
       no: i + 1,
       desc: tr.querySelector('.inv-item').value.trim(),
       unit: tr.querySelector('.inv-unit').value.trim(),
-      qtyContract: Number(tr.querySelector('.inv-qty-contract').value) || 0,
-      qtyPrev: Number(tr.querySelector('.inv-qty-prev').value) || 0,
-      qtyCurr: Number(tr.querySelector('.inv-qty-curr').value) || 0,
-      qtyTotal: Number(tr.querySelector('.inv-qty-total').textContent.replace(/,/g, '')) || 0,
-      rate: Number(tr.querySelector('.inv-rate').value) || 0,
-      amtPrev: Number(tr.querySelector('.inv-amt-prev').textContent.replace(/,/g, '')) || 0,
-      amtCurr: Number(tr.querySelector('.inv-amt-curr').textContent.replace(/,/g, '')) || 0,
-      amtTotal: Number(tr.querySelector('.inv-amt-total').textContent.replace(/,/g, '')) || 0,
+      qtyContract, qtyPrev, qtyCurr, qtyTotal,
+      rate, amtPrev, amtCurr, amtTotal,
     });
   });
   if (!rows.length || !rows[0].desc) { alert('أضف بنداً واحداً على الأقل.'); return false; }
 
-  const subtotal = Number(document.getElementById('invSubtotal').textContent.replace(/,/g, '')) || 0;
-  const vat = Number(document.getElementById('invVat').textContent.replace(/,/g, '')) || 0;
-  const total = Number(document.getElementById('invTotal').textContent.replace(/,/g, '')) || 0;
+  const vat = subtotal * 0.15;
+  const total = subtotal + vat;
+  // show on screen (optional)
+  document.getElementById('invSubtotal').textContent = fmt(subtotal);
+  document.getElementById('invVat').textContent = fmt(vat);
+  document.getElementById('invTotal').textContent = fmt(total);
 
   const invId = uid();
   const invNumber = document.getElementById('invNumber').value.trim() || ('INV-' + Date.now().toString().slice(-6));
@@ -232,7 +250,12 @@ function listenInvoices() {
       const inv = d.data();
       const items = inv.items || [];
       let subtotal = 0;
-      items.forEach(it => subtotal += Number(it.amtTotal) || 0);
+      items.forEach(it => {
+        const rate = parseNum(it.rate);
+        const qtyPrev = parseNum(it.qtyPrev);
+        const qtyCurr = parseNum(it.qtyCurr);
+        subtotal += (qtyPrev + qtyCurr) * rate;
+      });
       const vat = subtotal * 0.15;
       const total = subtotal + vat;
       return `<div class="project-card" style="position:relative">
@@ -305,11 +328,20 @@ async function downloadInvoicePDF(invId) {
     setTimeout(() => { unsub(); reject(new Error('timeout')); }, 10000);
   });
 
-  // Recalculate totals from items (fix for old invoices saved with zero)
+  // Recalculate all values from raw data for reliability
+  const rawItems = (inv.items || []);
   let subtotal = 0;
-  const items = (inv.items || []);
-  items.forEach(it => {
-    subtotal += Number(it.amtTotal) || 0;
+  const items = rawItems.map((it, i) => {
+    const rate = parseNum(it.rate);
+    const qtyContract = parseNum(it.qtyContract);
+    const qtyPrev = parseNum(it.qtyPrev);
+    const qtyCurr = parseNum(it.qtyCurr);
+    const qtyTotal = qtyPrev + qtyCurr;
+    const amtPrev = qtyPrev * rate;
+    const amtCurr = qtyCurr * rate;
+    const amtTotal = amtPrev + amtCurr;
+    subtotal += amtTotal;
+    return { ...it, no: i + 1, qtyContract, qtyPrev, qtyCurr, qtyTotal, rate, amtPrev, amtCurr, amtTotal };
   });
   const vat = subtotal * 0.15;
   const total = subtotal + vat;
