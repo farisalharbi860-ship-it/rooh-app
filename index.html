@@ -178,36 +178,37 @@
 
 <!-- ===== INVOICE PRINT TEMPLATE (hidden) ===== -->
 <div id="invoicePrintTemplate" style="display:none;width:210mm;padding:15mm;font-family:Cairo,sans-serif;background:#fff;color:#000;direction:rtl">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div style="flex:0 0 160px">
+      <img src="./logo.png" style="max-width:150px;height:auto" alt="SLCE Logo" />
+    </div>
+    <div style="text-align:right;flex:1;font-size:13px;line-height:1.8">
+      <div style="font-size:18px;font-weight:bold;color:#1e3a8a">مؤسسة روح المنافسه المحلية للمقاولات</div>
+      <div><strong>سجل تجاري:</strong> 4030580591</div>
+      <div><strong>الرقم الضريبي:</strong> 300144171600003</div>
+      <div><strong>العنوان:</strong> جدة، مشرفة، الاعلام، 23341</div>
+    </div>
+  </div>
+
   <div style="text-align:center;margin-bottom:10px">
     <div style="font-size:24px;font-weight:bold">فاتورة ضريبية</div>
     <div style="font-size:14px">Taxable Invoice</div>
   </div>
 
   <div style="border:2px solid #000;padding:10px;margin-bottom:12px">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div style="font-size:13px">
+    <div style="display:flex;justify-content:space-between;font-size:13px">
+      <div>
         <p style="margin:3px 0"><strong>العمــيل :</strong> <span id="ptCustomer"></span></p>
         <p style="margin:3px 0"><strong>المشروع :</strong> <span id="ptProject"></span></p>
         <p style="margin:3px 0"><strong>الرقم الضريبي :</strong> <span id="ptVatNo"></span></p>
       </div>
-      <div style="text-align:center">
-        <h3 style="margin:0;color:#1e3a8a;font-size:16px">مؤسسة روح المنافسة المحلية</h3>
-        <p style="margin:2px 0;font-size:11px">تجارة المقاولات العامة - رقم السجل التجاري: 4030379558</p>
-        <p style="margin:2px 0;font-size:11px">الرقم الضريبي: 311392255700003</p>
-        <p style="margin:2px 0;font-size:11px">الهاتف: 0500908917 - 0500908916</p>
-      </div>
-      <div style="font-size:13px;text-align:left">
-        <p style="margin:3px 0"><strong>سجل تجاري:</strong> 4030379558</p>
-        <p style="margin:3px 0"><strong>C.R. No</strong></p>
+      <div style="text-align:left">
+        <p style="margin:3px 0"><strong>رقم الفاتورة :</strong> <span id="ptInvNo"></span></p>
+        <p style="margin:3px 0"><strong>تاريخ الفاتورة :</strong> <span id="ptDate"></span></p>
+        <p style="margin:3px 0"><strong>المستخدم :</strong> <span id="ptUser">مدير</span></p>
+        <p style="margin:3px 0"><strong>طريقة الدفع :</strong> <span id="ptPayType"></span></p>
       </div>
     </div>
-  </div>
-
-  <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:10px;flex-wrap:wrap">
-    <div><strong>تاريخ الفاتورة :</strong> <span id="ptDate"></span></div>
-    <div><strong>Inv No.</strong> <span id="ptInvNo"></span></div>
-    <div><strong>المستخدم :</strong> <span id="ptUser">مدير</span></div>
-    <div><strong>طريقة الدفع :</strong> <span id="ptPayType"></span></div>
   </div>
 
   <table style="width:100%;border-collapse:collapse;font-size:12px" border="1">
@@ -262,31 +263,31 @@
 
 <!-- ===== RECEIPT PRINT TEMPLATE (hidden) ===== -->
 <div id="receiptPrintTemplate" style="display:none;width:210mm;padding:15mm;font-family:Cairo,sans-serif;background:#fff;color:#000;direction:rtl">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div style="flex:0 0 160px">
+      <img src="./logo.png" style="max-width:150px;height:auto" alt="SLCE Logo" />
+    </div>
+    <div style="text-align:right;flex:1;font-size:13px;line-height:1.8">
+      <div style="font-size:18px;font-weight:bold;color:#1e3a8a">مؤسسة روح المنافسه المحلية للمقاولات</div>
+      <div><strong>سجل تجاري:</strong> 4030580591</div>
+      <div><strong>الرقم الضريبي:</strong> 300144171600003</div>
+      <div><strong>العنوان:</strong> جدة، مشرفة، الاعلام، 23341</div>
+    </div>
+  </div>
+
   <div style="text-align:center;margin-bottom:10px">
     <div style="font-size:22px;font-weight:bold">سند قبض</div>
     <div style="font-size:14px">Receipt Voucher</div>
   </div>
 
-  <div style="border:2px solid #000;padding:10px;margin-bottom:12px">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div style="font-size:13px">
-        <p style="margin:3px 0"><strong>رقم السند:</strong> <span id="ptRecNo"></span></p>
-        <p style="margin:3px 0"><strong>التاريخ:</strong> <span id="ptRecDate"></span></p>
-      </div>
-      <div style="text-align:center">
-        <h3 style="margin:0;color:#1e3a8a;font-size:16px">مؤسسة روح المنافسة المحلية</h3>
-        <p style="margin:2px 0;font-size:11px">تجارة المقاولات العامة - رقم السجل التجاري: 4030379558</p>
-        <p style="margin:2px 0;font-size:11px">الرقم الضريبي: 311392255700003</p>
-        <p style="margin:2px 0;font-size:11px">الهاتف: 0500908917 - 0500908916</p>
-      </div>
-      <div style="font-size:13px;text-align:left">
-        <p style="margin:3px 0"><strong>رقم الفاتورة:</strong> <span id="ptRecInvNo"></span></p>
-        <p style="margin:3px 0"><strong>المبلغ:</strong> <span id="ptRecAmount"></span> ر.س</p>
-      </div>
+  <div style="border:2px solid #000;padding:15px;margin-bottom:20px;font-size:14px;line-height:2.2">
+    <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+      <div><strong>رقم السند:</strong> <span id="ptRecNo"></span></div>
+      <div><strong>التاريخ:</strong> <span id="ptRecDate"></span></div>
+      <div><strong>رقم الفاتورة:</strong> <span id="ptRecInvNo"></span></div>
+      <div><strong>المبلغ:</strong> <span id="ptRecAmount"></span> ر.س</div>
     </div>
-  </div>
 
-  <div style="font-size:14px;margin-bottom:20px">
     <p><strong>استلمنا من السيد / شركة:</strong> <span id="ptRecFrom"></span></p>
     <p><strong>مبلغ وقدره:</strong> <span id="ptRecAmountWords"></span> ريال سعودي فقط لا غير.</p>
     <p><strong>وذلك عن:</strong> <span id="ptRecDesc"></span></p>
