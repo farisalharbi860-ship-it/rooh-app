@@ -142,14 +142,17 @@ function recalcRow(tr) {
 }
 
 function recalcInvoice() {
-  let subtotal = 0;
+  let taxable = 0;
+  let prevTotal = 0;
   document.querySelectorAll('#invItemsBody tr').forEach(tr => {
-    const total = Number(tr.querySelector('.inv-amt-total').textContent.replace(/,/g, '')) || 0;
-    subtotal += total;
+    const prev = parseNum(tr.querySelector('.inv-amt-prev').textContent);
+    const curr = parseNum(tr.querySelector('.inv-amt-curr').textContent);
+    taxable += curr;
+    prevTotal += prev;
   });
-  const vat = subtotal * 0.15;
-  const total = subtotal + vat;
-  document.getElementById('invSubtotal').textContent = fmt(subtotal);
+  const vat = taxable * 0.15;
+  const total = taxable + vat;
+  document.getElementById('invSubtotal').textContent = fmt(taxable);
   document.getElementById('invVat').textContent = fmt(vat);
   document.getElementById('invTotal').textContent = fmt(total);
 }
@@ -157,7 +160,7 @@ function recalcInvoice() {
 /* ---- Create & Save Invoice ---- */
 async function createInvoice(e) {
   e.preventDefault();
-  let subtotal = 0;
+  let taxable = 0;
   const rows = [];
   document.querySelectorAll('#invItemsBody tr').forEach((tr, i) => {
     const qtyContract = parseNum(tr.querySelector('.inv-qty-contract').value);
@@ -168,7 +171,7 @@ async function createInvoice(e) {
     const amtPrev = qtyPrev * rate;
     const amtCurr = qtyCurr * rate;
     const amtTotal = amtPrev + amtCurr;
-    subtotal += amtTotal;
+    taxable += amtCurr;
     rows.push({
       no: i + 1,
       desc: tr.querySelector('.inv-item').value.trim(),
@@ -179,10 +182,10 @@ async function createInvoice(e) {
   });
   if (!rows.length || !rows[0].desc) { alert('أضف بنداً واحداً على الأقل.'); return false; }
 
-  const vat = subtotal * 0.15;
-  const total = subtotal + vat;
-  // show on screen (optional)
-  document.getElementById('invSubtotal').textContent = fmt(subtotal);
+  const vat = taxable * 0.15;
+  const total = taxable + vat;
+  // show on screen
+  document.getElementById('invSubtotal').textContent = fmt(taxable);
   document.getElementById('invVat').textContent = fmt(vat);
   document.getElementById('invTotal').textContent = fmt(total);
 
@@ -192,6 +195,7 @@ async function createInvoice(e) {
   const projectOpt = projectSel.options[projectSel.selectedIndex];
   const projectId = projectSel.value;
   const projectName = projectOpt.dataset.name || projectOpt.textContent;
+  const subtotal = taxable;
   const invData = {
     number: invNumber,
     date: document.getElementById('invDate').value,
@@ -252,9 +256,8 @@ function listenInvoices() {
       let subtotal = 0;
       items.forEach(it => {
         const rate = parseNum(it.rate);
-        const qtyPrev = parseNum(it.qtyPrev);
         const qtyCurr = parseNum(it.qtyCurr);
-        subtotal += (qtyPrev + qtyCurr) * rate;
+        subtotal += qtyCurr * rate;
       });
       const vat = subtotal * 0.15;
       const total = subtotal + vat;
@@ -330,7 +333,6 @@ async function downloadInvoicePDF(invId) {
 
   // Recalculate all values from raw data for reliability
   const rawItems = (inv.items || []);
-  let subtotal = 0;
   const items = rawItems.map((it, i) => {
     const rate = parseNum(it.rate);
     const qtyContract = parseNum(it.qtyContract);
@@ -340,9 +342,10 @@ async function downloadInvoicePDF(invId) {
     const amtPrev = qtyPrev * rate;
     const amtCurr = qtyCurr * rate;
     const amtTotal = amtPrev + amtCurr;
-    subtotal += amtTotal;
     return { ...it, no: i + 1, qtyContract, qtyPrev, qtyCurr, qtyTotal, rate, amtPrev, amtCurr, amtTotal };
   });
+  // Tax base is current amount only (progress claim)
+  const subtotal = items.reduce((s, it) => s + it.amtCurr, 0);
   const vat = subtotal * 0.15;
   const total = subtotal + vat;
 
