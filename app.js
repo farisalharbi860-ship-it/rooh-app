@@ -304,35 +304,30 @@ function deleteInvoice(id) {
   }).catch(err => alert('تعذّر الحذف: ' + err.message));
 }
 
-/* ---- Invoice QR Code plain text ---- */
-function toInvoiceQRText(inv) {
-  const lines = [
-    'فاتورة ضريبية',
-    'المؤسسة: مؤسسة روح المنافسه المحلية للمقاولات',
-    'الرقم الضريبي: 300144171600003',
-    'رقم الفاتورة: ' + (inv.number || '-'),
-    'التاريخ: ' + (inv.date || '-'),
-    'العميل: ' + (inv.customer || '-'),
-    'المشروع: ' + (inv.project || '-'),
-    'المبلغ: ' + String(Number(inv.total || 0).toFixed(2)) + ' SAR',
-    'الضريبة: ' + String(Number(inv.vat || 0).toFixed(2)) + ' SAR'
+/* ---- ZATCA TLV QR Code Generator ---- */
+function toZATCAQR(data) {
+  function hex(byte) { return byte.toString(16).padStart(2, '0').toUpperCase(); }
+  const d = new Date(data.date || Date.now());
+  const iso = d.toISOString().replace(/\..*Z$/, 'Z');
+  const fields = [
+    [1, 'مؤسسة روح المنافسه المحلية للمقاولات'],
+    [2, '300144171600003'],
+    [3, iso],
+    [4, String(Number(data.total || 0).toFixed(2))],
+    [5, String(Number(data.vat || 0).toFixed(2))]
   ];
-  return lines.join('\n');
-}
-
-/* ---- Receipt QR Code plain text ---- */
-function toReceiptQRText(rec) {
-  const lines = [
-    'سند قبض',
-    'المؤسسة: مؤسسة روح المنافسه المحلية للمقاولات',
-    'الرقم الضريبي: 300144171600003',
-    'رقم السند: ' + (rec.number || '-'),
-    'التاريخ: ' + (rec.date || '-'),
-    'العميل: ' + (rec.customer || '-'),
-    'المبلغ: ' + String(Number(rec.amount || 0).toFixed(2)) + ' SAR',
-    'الفاتورة: ' + (rec.invoiceNumber || '-')
-  ];
-  return lines.join('\n');
+  let hexStr = '';
+  for (const [tag, val] of fields) {
+    const bytes = new TextEncoder().encode(val);
+    hexStr += hex(tag) + hex(bytes.length);
+    for (const b of bytes) hexStr += hex(b);
+  }
+  // hex to base64
+  let bin = '';
+  for (let i = 0; i < hexStr.length; i += 2) {
+    bin += String.fromCharCode(parseInt(hexStr.substr(i, 2), 16));
+  }
+  try { return btoa(bin); } catch(e) { return ''; }
 }
 function loadImageAsBase64(url) {
   return new Promise((resolve, reject) => {
@@ -413,16 +408,13 @@ async function downloadInvoicePDF(invId) {
   document.getElementById('ptVat').textContent = fmt(vat);
   document.getElementById('ptTotal').textContent = fmt(total);
 
-  /* QR Code - readable text */
+  /* QR Code - ZATCA TLV format */
   try {
     const qrEl = document.getElementById('ptBarcode');
     qrEl.innerHTML = '';
     if (window.QRCode) {
-      const qrData = toInvoiceQRText({
-        number: inv.number,
+      const qrData = toZATCAQR({
         date: inv.date,
-        customer: inv.customer,
-        project: inv.project,
         total: total,
         vat: vat
       });
@@ -487,17 +479,16 @@ async function downloadReceiptPDF(invId) {
   document.getElementById('ptRecAmountWords').textContent = rec.amountWords;
   document.getElementById('ptRecDesc').textContent = rec.description;
 
-  /* QR Code - readable text for receipt */
+  /* QR Code - ZATCA TLV format for receipt */
   try {
     const qrEl = document.getElementById('ptRecBarcode');
     qrEl.innerHTML = '';
     if (window.QRCode) {
-      const qrData = toReceiptQRText({
-        number: rec.number,
+      const recVat = rec.amount - (rec.amount / 1.15);
+      const qrData = toZATCAQR({
         date: rec.date,
-        customer: rec.customer,
-        amount: rec.amount,
-        invoiceNumber: rec.invoiceNumber
+        total: rec.amount,
+        vat: recVat
       });
       new QRCode(qrEl, {
         text: qrData,
