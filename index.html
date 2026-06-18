@@ -45,6 +45,8 @@
       <button class="tab-btn active" data-tab="projects" onclick="switchTab('projects')">المشاريع</button>
       <button class="tab-btn" data-tab="reports" onclick="switchTab('reports')">التقارير</button>
       <button class="tab-btn" data-tab="invoices" onclick="switchTab('invoices')">🧾 فواتير</button>
+      <button class="tab-btn" data-tab="completed" onclick="switchTab('completed')">✅ الأعمال المنجزة</button>
+      <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard')">📊 داش بورد</button>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" id="installBtn" style="display:none" onclick="installApp()" title="تثبيت التطبيق على جهازك">⬇️ تثبيت التطبيق</button>
@@ -171,6 +173,24 @@
     <div class="card">
       <h2><span class="dot"></span> قائمة الفواتير</h2>
       <div id="invoicesList"></div>
+    </div>
+  </div>
+  <!-- ===== COMPLETED WORKS TAB ===== -->
+  <div id="tab-completed" style="display:none">
+    <div class="card">
+      <h2><span class="dot"></span> الأعمال المنجزة</h2>
+      <p style="color:var(--muted);font-size:13px">تُستخرج الأعمال المنجزة من حقل "العمل المنجز" في نموذج إضافة المصروفات</p>
+      <div id="completedList"></div>
+    </div>
+  </div>
+
+  <!-- ===== DASHBOARD TAB ===== -->
+  <div id="tab-dashboard" style="display:none">
+    <div class="card">
+      <h2><span class="dot"></span> لوحة المتابعة (Dashboard)</h2>
+      <div id="dashboardStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px"></div>
+      <canvas id="dashboardChart" style="max-height:300px"></canvas>
+      <div id="dashboardProjects" style="margin-top:20px"></div>
     </div>
   </div>
 </div>

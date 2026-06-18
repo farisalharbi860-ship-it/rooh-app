@@ -570,8 +570,12 @@ function switchTab(name) {
   document.getElementById('tab-projects').style.display = name === 'projects' ? 'block' : 'none';
   document.getElementById('tab-reports').style.display = name === 'reports' ? 'block' : 'none';
   document.getElementById('tab-invoices').style.display = name === 'invoices' ? 'block' : 'none';
+  document.getElementById('tab-completed').style.display = name === 'completed' ? 'block' : 'none';
+  document.getElementById('tab-dashboard').style.display = name === 'dashboard' ? 'block' : 'none';
   if (name === 'reports') refreshReportSelect();
   if (name === 'invoices') { refreshInvoiceProjectSelect(); renderInvoicesList(); addInvoiceRow(); }
+  if (name === 'completed') renderCompletedWorks();
+  if (name === 'dashboard') renderDashboard();
 }
 
 function refreshInvoiceProjectSelect() {
@@ -1192,6 +1196,117 @@ auth.onAuthStateChanged(user => {
     showLogin();
   }
 });
+
+/* ================= Completed Works ================= */
+function renderCompletedWorks() {
+  const wrap = document.getElementById('completedList');
+  if (!wrap) return;
+  if (!state.projects.length) {
+    wrap.innerHTML = '<p style="text-align:center;color:var(--muted)">لا توجد بيانات.</p>';
+    return;
+  }
+  // Gather all works from expenses 'work' field
+  const allWorks = [];
+  state.projects.forEach(p => {
+    (p.expenses || []).forEach(e => {
+      if (e.work && e.work.trim()) {
+        allWorks.push({
+          projectName: p.name,
+          company: p.company || '-',
+          work: e.work.trim(),
+          amount: Number(e.amount) || 0,
+          date: e.date,
+          reason: e.reason || '-'
+        });
+      }
+    });
+  });
+  if (!allWorks.length) {
+    wrap.innerHTML = '<p style="text-align:center;color:var(--muted)">لا توجد أعمال منجزة مسجلة. أضف عملاً منجزاً في بيان المصروفات.</p>';
+    return;
+  }
+  // Sort by date desc
+  allWorks.sort((a, b) => (b.date || '') > (a.date || '') ? 1 : -1);
+
+  wrap.innerHTML = '<div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>المشروع</th><th>الشركة</th><th>العمل المنجز</th><th>المبلغ</th><th>البيان</th></tr></thead><tbody>' +
+    allWorks.map(w => `<tr><td>${fmtDate(w.date)}</td><td>${esc(w.projectName)}</td><td>${esc(w.company)}</td><td>${esc(w.work)}</td><td>${fmt(w.amount)}</td><td>${esc(w.reason)}</td></tr>`).join('') +
+    '</tbody></table></div>';
+}
+
+/* ================= Dashboard ================= */
+let dashboardChartInstance = null;
+
+function renderDashboard() {
+  const statsWrap = document.getElementById('dashboardStats');
+  const chartCanvas = document.getElementById('dashboardChart');
+  const projectsWrap = document.getElementById('dashboardProjects');
+  if (!statsWrap || !chartCanvas || !projectsWrap) return;
+
+  if (!state.projects.length) {
+    statsWrap.innerHTML = '<p style="text-align:center;color:var(--muted)">لا توجد بيانات.</p>';
+    projectsWrap.innerHTML = '';
+    return;
+  }
+
+  let totalExpenses = 0, totalRevenues = 0, totalWorks = 0;
+  const projectStats = [];
+
+  state.projects.forEach(p => {
+    const exp = (p.expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const rev = (p.revenues || []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const works = (p.expenses || []).filter(e => e.work && e.work.trim()).length;
+    totalExpenses += exp;
+    totalRevenues += rev;
+    totalWorks += works;
+    projectStats.push({ name: p.name, company: p.company, expenses: exp, revenues: rev, works, profit: rev - exp });
+  });
+
+  // Stats cards
+  statsWrap.innerHTML = `
+    <div class="project-card" style="text-align:center"><div style="font-size:28px;color:var(--danger)">${fmt(totalExpenses)}</div><div style="font-size:13px;color:var(--muted)">إجمالي المصروفات</div></div>
+    <div class="project-card" style="text-align:center"><div style="font-size:28px;color:var(--success)">${fmt(totalRevenues)}</div><div style="font-size:13px;color:var(--muted)">إجمالي الإيرادات</div></div>
+    <div class="project-card" style="text-align:center"><div style="font-size:28px;color:${totalRevenues >= totalExpenses ? 'var(--success)' : 'var(--danger)'}">${fmt(totalRevenues - totalExpenses)}</div><div style="font-size:13px;color:var(--muted)">صافي الربح / الخسارة</div></div>
+    <div class="project-card" style="text-align:center"><div style="font-size:28px;color:var(--primary)">${totalWorks}</div><div style="font-size:13px;color:var(--muted)">الأعمال المنجزة</div></div>
+  `;
+
+  // Chart.js bar chart
+  const labels = projectStats.map(p => p.name);
+  const expData = projectStats.map(p => p.expenses);
+  const revData = projectStats.map(p => p.revenues);
+  const ctx = chartCanvas.getContext('2d');
+  if (dashboardChartInstance) dashboardChartInstance.destroy();
+  dashboardChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'المصروفات', data: expData, backgroundColor: '#ef4444' },
+        { label: 'الإيرادات', data: revData, backgroundColor: '#22c55e' }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top' } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+
+  // Per-project cards
+  projectsWrap.innerHTML = '<h3 style="margin-bottom:12px">تفاصيل المشاريع</h3>' +
+    projectStats.map(p => `
+      <div class="project-card" style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">
+          <div><strong>${esc(p.name)}</strong> <span style="color:var(--muted)">— ${esc(p.company)}</span></div>
+          <div style="display:flex;gap:20px;font-size:13px;margin-top:4px">
+            <span>💰 ${fmt(p.expenses)} مصروفات</span>
+            <span>📥 ${fmt(p.revenues)} إيرادات</span>
+            <span>✅ ${p.works} أعمال منجزة</span>
+            <span style="color:${p.profit >= 0 ? 'var(--success)' : 'var(--danger)'}">📈 ${fmt(p.profit)} صافي</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+}
 
 /* ---- PWA: تسجيل الـ service worker للعمل دون إنترنت ---- */
 if ('serviceWorker' in navigator) {
