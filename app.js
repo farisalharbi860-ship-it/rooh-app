@@ -384,18 +384,31 @@ async function downloadInvoicePDF(invId) {
   document.getElementById('ptVat').textContent = fmt(vat);
   document.getElementById('ptTotal').textContent = fmt(total);
 
-  /* barcode */
+  /* QR Code with full invoice data */
   try {
-    if (window.JsBarcode) {
-      JsBarcode("#ptBarcode", inv.number || "000", {
-        format: "CODE128",
-        displayValue: true,
-        fontSize: 13,
-        margin: 5,
-        height: 40
+    const qrEl = document.getElementById('ptBarcode');
+    qrEl.innerHTML = '';
+    if (window.QRCode) {
+      const qrData = JSON.stringify({
+        invoiceNo: inv.number,
+        date: inv.date,
+        customer: inv.customer,
+        project: inv.project,
+        subtotal: fmt(subtotal),
+        vat: fmt(vat),
+        total: fmt(total),
+        items: items.map(it => ({ desc: it.desc, qty: it.qtyCurr, rate: fmt(it.rate), amount: fmt(it.amtCurr) }))
+      });
+      new QRCode(qrEl, {
+        text: qrData,
+        width: 120,
+        height: 120,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
       });
     }
-  } catch(e) { console.warn('barcode error', e); }
+  } catch(e) { console.warn('QR error', e); }
 
   const el = document.getElementById('invoicePrintTemplate');
   /* preload logo as base64 for html2canvas CORS */
@@ -447,18 +460,29 @@ async function downloadReceiptPDF(invId) {
   document.getElementById('ptRecAmountWords').textContent = rec.amountWords;
   document.getElementById('ptRecDesc').textContent = rec.description;
 
-  /* barcode for receipt */
+  /* QR Code for receipt */
   try {
-    if (window.JsBarcode) {
-      JsBarcode("#ptRecBarcode", rec.number || "REC-000", {
-        format: "CODE128",
-        displayValue: true,
-        fontSize: 13,
-        margin: 5,
-        height: 40
+    const qrEl = document.getElementById('ptRecBarcode');
+    qrEl.innerHTML = '';
+    if (window.QRCode) {
+      const qrData = JSON.stringify({
+        receiptNo: rec.number,
+        date: rec.date,
+        customer: rec.customer,
+        amount: fmt(rec.amount),
+        invoiceNo: rec.invoiceNumber,
+        description: rec.description
+      });
+      new QRCode(qrEl, {
+        text: qrData,
+        width: 120,
+        height: 120,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
       });
     }
-  } catch(e) { console.warn('barcode error', e); }
+  } catch(e) { console.warn('QR error', e); }
 
   const el = document.getElementById('receiptPrintTemplate');
   const logoImg = el.querySelector('img[src*="logo"]');
