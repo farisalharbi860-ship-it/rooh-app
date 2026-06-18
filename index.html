@@ -40,21 +40,19 @@
 </header>
 
 <div class="container">
-  <div class="tabs no-print" style="justify-content:space-between">
+  <div class="tabs no-print" style="justify-content:flex-start">
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="tab-btn active" data-tab="projects" onclick="switchTab('projects')">المشاريع</button>
       <button class="tab-btn" data-tab="reports" onclick="switchTab('reports')">التقارير</button>
       <button class="tab-btn" data-tab="invoices" onclick="switchTab('invoices')">🧾 فواتير</button>
       <button class="tab-btn" data-tab="completed" onclick="switchTab('completed')">✅ الأعمال المنجزة</button>
       <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard')">📊 داش بورد</button>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-primary btn-sm" id="installBtn" style="display:none" onclick="installApp()" title="تثبيت التطبيق على جهازك">⬇️ تثبيت التطبيق</button>
-      <button class="btn btn-ghost btn-sm" onclick="exportBackup()" title="حفظ نسخة احتياطية من كل البيانات">💾 نسخة احتياطية</button>
-      <button class="btn btn-ghost btn-sm" onclick="openAutoBackups()" title="النسخ الاحتياطية التلقائية المحفوظة داخل المتصفح">🕓 النسخ التلقائية</button>
-      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('importFile').click()" title="استعادة البيانات من ملف">📥 استيراد</button>
+      <button class="btn btn-primary btn-sm" id="installBtn" style="display:none" onclick="installApp()" title="تثبيت التطبيق على جهازك">⬇️ تثبيت</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportBackup()" title="حفظ نسخة احتياطية">💾 نسخة</button>
+      <button class="btn btn-ghost btn-sm" onclick="openAutoBackups()" title="النسخ التلقائية">🕓 تلقائي</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('importFile').click()" title="استيراد">📥 استيراد</button>
       <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importBackup(event)" />
-      <button class="btn btn-ghost btn-sm" onclick="doLogout()" title="تسجيل الخروج">🚪 خروج</button>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()" title="خروج">🚪 خروج</button>
     </div>
   </div>
 
