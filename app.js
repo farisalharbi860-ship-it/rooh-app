@@ -304,38 +304,35 @@ function deleteInvoice(id) {
   }).catch(err => alert('تعذّر الحذف: ' + err.message));
 }
 
-/* ---- ZATCA TLV QR Code ---- */
-function toZATCATLV(seller, vatNo, dt, total, vat) {
-  function tlv(tag, val) {
-    const enc = new TextEncoder().encode(String(val));
-    const tagB = new Uint8Array([tag]);
-    const lenB = new Uint8Array([enc.length]);
-    const res = new Uint8Array(tagB.length + lenB.length + enc.length);
-    res.set(tagB, 0); res.set(lenB, 1); res.set(enc, 2);
-    return res;
-  }
-  const d = new Date(dt || Date.now());
-  const iso = d.toISOString().replace(/\..*Z$/, 'Z');
-  const b1 = tlv(1, seller);
-  const b2 = tlv(2, vatNo);
-  const b3 = tlv(3, iso);
-  const b4 = tlv(4, String(Number(total).toFixed(2)));
-  const b5 = tlv(5, String(Number(vat).toFixed(2)));
-  const all = new Uint8Array(b1.length + b2.length + b3.length + b4.length + b5.length);
-  let off = 0;
-  [b1,b2,b3,b4,b5].forEach(b => { all.set(b, off); off += b.length; });
-  // Base64
-  let b64 = '';
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  for (let i = 0; i < all.length; i += 3) {
-    const a = all[i], b = all[i+1], c = all[i+2];
-    const bits = (a << 16) | ((b || 0) << 8) | (c || 0);
-    b64 += chars[(bits >> 18) & 63];
-    b64 += chars[(bits >> 12) & 63];
-    b64 += (b === undefined) ? '=' : chars[(bits >> 6) & 63];
-    b64 += (c === undefined) ? '=' : chars[bits & 63];
-  }
-  return b64;
+/* ---- Invoice QR Code plain text ---- */
+function toInvoiceQRText(inv) {
+  const lines = [
+    'فاتورة ضريبية',
+    'المؤسسة: مؤسسة روح المنافسه المحلية للمقاولات',
+    'الرقم الضريبي: 300144171600003',
+    'رقم الفاتورة: ' + (inv.number || '-'),
+    'التاريخ: ' + (inv.date || '-'),
+    'العميل: ' + (inv.customer || '-'),
+    'المشروع: ' + (inv.project || '-'),
+    'المبلغ: ' + String(Number(inv.total || 0).toFixed(2)) + ' SAR',
+    'الضريبة: ' + String(Number(inv.vat || 0).toFixed(2)) + ' SAR'
+  ];
+  return lines.join('\n');
+}
+
+/* ---- Receipt QR Code plain text ---- */
+function toReceiptQRText(rec) {
+  const lines = [
+    'سند قبض',
+    'المؤسسة: مؤسسة روح المنافسه المحلية للمقاولات',
+    'الرقم الضريبي: 300144171600003',
+    'رقم السند: ' + (rec.number || '-'),
+    'التاريخ: ' + (rec.date || '-'),
+    'العميل: ' + (rec.customer || '-'),
+    'المبلغ: ' + String(Number(rec.amount || 0).toFixed(2)) + ' SAR',
+    'الفاتورة: ' + (rec.invoiceNumber || '-')
+  ];
+  return lines.join('\n');
 }
 function loadImageAsBase64(url) {
   return new Promise((resolve, reject) => {
@@ -416,22 +413,23 @@ async function downloadInvoicePDF(invId) {
   document.getElementById('ptVat').textContent = fmt(vat);
   document.getElementById('ptTotal').textContent = fmt(total);
 
-  /* QR Code - ZATCA TLV format (Saudi tax standard) */
+  /* QR Code - readable text */
   try {
     const qrEl = document.getElementById('ptBarcode');
     qrEl.innerHTML = '';
     if (window.QRCode) {
-      const qrData = toZATCATLV(
-        'مؤسسة روح المنافسه المحلية للمقاولات',
-        '300144171600003',
-        inv.date,
-        total,
-        vat
-      );
+      const qrData = toInvoiceQRText({
+        number: inv.number,
+        date: inv.date,
+        customer: inv.customer,
+        project: inv.project,
+        total: total,
+        vat: vat
+      });
       new QRCode(qrEl, {
         text: qrData,
-        width: 140,
-        height: 140,
+        width: 120,
+        height: 120,
         colorDark: '#000000',
         colorLight: '#ffffff',
         correctLevel: QRCode.CorrectLevel.M
@@ -489,23 +487,22 @@ async function downloadReceiptPDF(invId) {
   document.getElementById('ptRecAmountWords').textContent = rec.amountWords;
   document.getElementById('ptRecDesc').textContent = rec.description;
 
-  /* QR Code - ZATCA TLV format for receipt */
+  /* QR Code - readable text for receipt */
   try {
     const qrEl = document.getElementById('ptRecBarcode');
     qrEl.innerHTML = '';
     if (window.QRCode) {
-      const recVat = rec.amount - (rec.amount / 1.15);
-      const qrData = toZATCATLV(
-        'مؤسسة روح المنافسه المحلية للمقاولات',
-        '300144171600003',
-        rec.date,
-        rec.amount,
-        recVat
-      );
+      const qrData = toReceiptQRText({
+        number: rec.number,
+        date: rec.date,
+        customer: rec.customer,
+        amount: rec.amount,
+        invoiceNumber: rec.invoiceNumber
+      });
       new QRCode(qrEl, {
         text: qrData,
-        width: 140,
-        height: 140,
+        width: 120,
+        height: 120,
         colorDark: '#000000',
         colorLight: '#ffffff',
         correctLevel: QRCode.CorrectLevel.M
