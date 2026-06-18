@@ -1,5 +1,5 @@
 /* Service Worker - مؤسسة روح المنافسة المحلية */
-const CACHE = 'rooh-app-v18';
+const CACHE = 'rooh-app-v19';
 
 /* ملفات التطبيق الأساسية + المكتبات الخارجية لتشغيله دون إنترنت */
 const ASSETS = [
@@ -10,7 +10,7 @@ const ASSETS = [
   './firebase-config.js',
   './manifest.webmanifest',
   './icon.png',
-  './logo.png',
+  './logo-v2.png',
   'https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap',
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
