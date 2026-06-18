@@ -62,10 +62,11 @@ function autoBackup() {
 function parseNum(v) {
   if (typeof v === 'number') return isNaN(v) ? 0 : v;
   if (v == null) return 0;
-  let s = String(v).replace(/,/g, '').replace(/\u066B/g, '.').replace(/\u06f0/g, '0').replace(/\u06f1/g, '1').replace(/\u06f2/g, '2').replace(/\u06f3/g, '3').replace(/\u06f4/g, '4').replace(/\u06f5/g, '5').replace(/\u06f6/g, '6').replace(/\u06f7/g, '7').replace(/\u06f8/g, '8').replace(/\u06f9/g, '9');
-  // Convert Arabic-Indic digits to Western
-  const arToEn = { '\u0660':'0','\u0661':'1','\u0662':'2','\u0663':'3','\u0664':'4','\u0665':'5','\u0666':'6','\u0667':'7','\u0668':'8','\u0669':'9' };
-  s = s.replace(/[\u0660-\u0669]/g, c => arToEn[c] || c);
+  let s = String(v).replace(/[,٬]/g, '').replace(/\u066B/g, '.');
+  // Arabic-Indic digits (٠-٩)
+  s = s.replace(/[\u0660-\u0669]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x0660 + 0x0030));
+  // Extended Arabic-Indic digits (۰-۹)
+  s = s.replace(/[\u06f0-\u06f9]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x06f0 + 0x0030));
   const n = Number(s);
   return isNaN(n) ? 0 : n;
 }
