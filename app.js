@@ -349,6 +349,11 @@ async function downloadInvoicePDF(invId) {
   const vat = subtotal * 0.15;
   const total = subtotal + vat;
 
+  // debug
+  console.log('PDF totals:', { subtotal, vat, total });
+  console.log('PDF items count:', items.length);
+  console.log('PDF item 0:', items[0]);
+
   // Fill template
   document.getElementById('ptCustomer').textContent = inv.customer;
   document.getElementById('ptProject').textContent = inv.project;
