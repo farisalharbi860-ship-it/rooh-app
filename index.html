@@ -20,20 +20,20 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="styles.css?v=100" />
 <style>
-  /* Sidebar tabs - force right-side vertical */
+  /* Sidebar tabs - right side vertical, compact */
   .tabs {
     position: fixed !important;
-    right: 0 !important;
+    left: 0 !important;
     top: 120px !important;
-    width: 160px !important;
+    width: 120px !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 6px !important;
+    gap: 4px !important;
     z-index: 100 !important;
     background: #fff !important;
-    padding: 10px 10px 10px 14px !important;
-    border-radius: 12px 0 0 12px !important;
-    box-shadow: -4px 0 16px rgba(0,0,0,0.12) !important;
+    padding: 8px 6px 8px 10px !important;
+    border-radius: 0 12px 12px 0 !important;
+    box-shadow: 4px 0 12px rgba(0,0,0,0.10) !important;
     margin-bottom: 0 !important;
     flex-wrap: nowrap !important;
     justify-content: flex-start !important;
@@ -41,30 +41,34 @@
   .tabs > div {
     display: flex !important;
     flex-direction: column !important;
-    gap: 6px !important;
+    gap: 4px !important;
     flex-wrap: nowrap !important;
     width: 100% !important;
   }
-  .tab-btn {
+  .tabs .tab-btn {
     width: 100% !important;
     text-align: right !important;
-    padding: 10px 12px !important;
-    font-size: 13px !important;
+    padding: 7px 10px !important;
+    font-size: 11px !important;
     margin: 0 !important;
+    line-height: 1.2 !important;
+    border-radius: 8px !important;
   }
   .tabs .btn {
     width: 100% !important;
     text-align: right !important;
-    padding: 10px 12px !important;
-    font-size: 13px !important;
+    padding: 7px 10px !important;
+    font-size: 11px !important;
     margin: 0 !important;
+    line-height: 1.2 !important;
+    border-radius: 8px !important;
   }
-  /* Push content away from sidebar */
-  .container { padding-right: 180px !important; max-width: 1240px !important; }
+  /* Push content away from left sidebar */
+  .container { padding-left: 130px !important; padding-right: 12px !important; max-width: 1200px !important; }
   @media (max-width: 900px) {
-    .tabs { position: relative !important; width: 100% !important; top: 0 !important; flex-direction: row !important; flex-wrap: wrap !important; border-radius: 10px !important; box-shadow: none !important; padding: 10px !important; }
+    .tabs { position: relative !important; width: 100% !important; top: 0 !important; left: auto !important; flex-direction: row !important; flex-wrap: wrap !important; border-radius: 10px !important; box-shadow: none !important; padding: 10px !important; }
     .tabs > div { flex-direction: row !important; flex-wrap: wrap !important; }
-    .container { padding-right: 12px !important; }
+    .container { padding-left: 12px !important; }
   }
 </style>
 </head>
