@@ -184,12 +184,8 @@ async function createInvoice(e) {
 
   const vat = taxable * 0.15;
   const total = taxable + vat;
-  // show on screen
-  document.getElementById('invSubtotal').textContent = fmt(taxable);
-  document.getElementById('invVat').textContent = fmt(vat);
-  document.getElementById('invTotal').textContent = fmt(total);
 
-  const invId = uid();
+  // Gather data for preview
   const invNumber = document.getElementById('invNumber').value.trim() || ('INV-' + Date.now().toString().slice(-6));
   const projectSel = document.getElementById('invProject');
   const projectOpt = projectSel.options[projectSel.selectedIndex];
@@ -200,42 +196,28 @@ async function createInvoice(e) {
     number: invNumber,
     date: document.getElementById('invDate').value,
     customer: document.getElementById('invCustomer').value.trim(),
-    projectId: projectId,
     project: projectName,
     vatNo: document.getElementById('invVatNo').value.trim(),
     payType: document.getElementById('invPayType').value,
     notes: document.getElementById('invNotes').value.trim(),
     items: rows,
     subtotal, vat, total,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    projectId
   };
 
-  try {
-    await invoicesCol().doc(invId).set(invData);
-    // Create linked receipt
-    const recId = uid();
-    const recData = {
-      number: 'REC-' + invNumber.replace(/[^0-9]/g, ''),
-      date: invData.date,
-      customer: invData.customer,
-      project: invData.project,
-      amount: total,
-      amountWords: numberToArabicWords(Math.floor(total)),
-      description: 'فاتورة ضريبية رقم ' + invNumber + ' — ' + invData.project,
-      invoiceId: invId,
-      invoiceNumber: invNumber,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    await receiptsCol().doc(recId).set(recData);
+  // Build receipt preview data
+  const recData = {
+    number: 'REC-' + invNumber.replace(/[^0-9]/g, ''),
+    date: invData.date,
+    customer: invData.customer,
+    amount: total,
+    amountWords: numberToArabicWords(Math.floor(total)),
+    description: 'فاتورة ضريبية رقم ' + invNumber + ' — ' + invData.project,
+    invoiceNumber: invNumber
+  };
 
-    alert('تم حفظ الفاتورة وسند القبض ✅');
-    document.getElementById('invoiceForm').reset();
-    document.getElementById('invItemsBody').innerHTML = '';
-    recalcInvoice();
-    renderInvoicesList();
-  } catch (err) {
-    alert('تعذّر الحفظ: ' + err.message);
-  }
+  // Show preview modal
+  showPreviewModal(invData, recData);
   return false;
 }
 
@@ -1196,6 +1178,181 @@ auth.onAuthStateChanged(user => {
     showLogin();
   }
 });
+
+/* ---- Preview Modal ---- */
+let previewInvoiceData = null;
+let previewReceiptData = null;
+
+function showPreviewModal(invData, recData) {
+  previewInvoiceData = invData;
+  previewReceiptData = recData;
+  // Fill invoice into preview invoice template
+  fillInvoiceTemplate(invData);
+  // Fill receipt into preview receipt template
+  fillReceiptTemplate(recData);
+  // Move templates into preview modal areas
+  const invTmpl = document.getElementById('invoicePrintTemplate');
+  const recTmpl = document.getElementById('receiptPrintTemplate');
+  const invArea = document.getElementById('previewInvoiceArea');
+  const recArea = document.getElementById('previewReceiptArea');
+  invArea.innerHTML = '';
+  recArea.innerHTML = '';
+  invArea.appendChild(invTmpl);
+  recArea.appendChild(recTmpl);
+  invTmpl.style.display = 'block';
+  recTmpl.style.display = 'block';
+  document.getElementById('previewModal').style.display = 'flex';
+}
+
+function closePreviewModal() {
+  document.getElementById('previewModal').style.display = 'none';
+  const invTmpl = document.getElementById('invoicePrintTemplate');
+  const recTmpl = document.getElementById('receiptPrintTemplate');
+  invTmpl.style.display = 'none';
+  recTmpl.style.display = 'none';
+  // Return templates to body (hidden)
+  document.body.appendChild(invTmpl);
+  document.body.appendChild(recTmpl);
+}
+
+function fillInvoiceTemplate(inv) {
+  const items = (inv.items || []);
+  let subtotal = 0;
+  items.forEach(it => subtotal += (Number(it.qtyPrev)||0 + Number(it.qtyCurr)||0) * (Number(it.rate)||0));
+  const vat = subtotal * 0.15;
+  const total = subtotal + vat;
+  document.getElementById('ptCustomer').textContent = inv.customer;
+  document.getElementById('ptProject').textContent = inv.project;
+  document.getElementById('ptVatNo').textContent = inv.vatNo || '-';
+  document.getElementById('ptInvNo').textContent = inv.number;
+  document.getElementById('ptDate').textContent = fmtDate(inv.date);
+  document.getElementById('ptPayType').textContent = inv.payType;
+  document.getElementById('ptNotes').textContent = inv.notes || '';
+  document.getElementById('ptTotalWords').textContent = numberToArabicWords(total);
+  const tbody = document.getElementById('ptItems');
+  tbody.innerHTML = items.map(it => `
+    <tr>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${it.no}</td>
+      <td style="border:1px solid #000;padding:5px;font-size:12px">${esc(it.desc)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${esc(it.unit)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.qtyContract)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.qtyPrev)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.qtyCurr)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.qtyTotal)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.rate)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.amtPrev)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.amtCurr)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.amtTotal)}</td>
+    </tr>
+  `).join('');
+  document.getElementById('ptSubtotal').textContent = fmt(subtotal);
+  document.getElementById('ptVat').textContent = fmt(vat);
+  document.getElementById('ptTotal').textContent = fmt(total);
+  // QR Code
+  try {
+    const qrEl = document.getElementById('ptBarcode');
+    qrEl.innerHTML = '';
+    if (window.QRCode) {
+      const qrData = toZATCAQR({ date: inv.date, total: total, vat: vat });
+      new QRCode(qrEl, { text: qrData, width: 120, height: 120, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.M });
+    }
+  } catch(e) { console.warn('QR error', e); }
+}
+
+function fillReceiptTemplate(rec) {
+  document.getElementById('ptRecNo').textContent = rec.number;
+  document.getElementById('ptRecDate').textContent = fmtDate(rec.date);
+  document.getElementById('ptRecInvNo').textContent = rec.invoiceNumber;
+  document.getElementById('ptRecAmount').textContent = fmt(rec.amount);
+  document.getElementById('ptRecFrom').textContent = rec.customer;
+  document.getElementById('ptRecAmountWords').textContent = rec.amountWords;
+  document.getElementById('ptRecDesc').textContent = rec.description;
+  try {
+    const qrEl = document.getElementById('ptRecBarcode');
+    qrEl.innerHTML = '';
+    if (window.QRCode) {
+      const recVat = rec.amount - (rec.amount / 1.15);
+      const qrData = toZATCAQR({ date: rec.date, total: rec.amount, vat: recVat });
+      new QRCode(qrEl, { text: qrData, width: 120, height: 120, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.M });
+    }
+  } catch(e) { console.warn('QR error', e); }
+}
+
+function printPreview() {
+  window.print();
+}
+
+async function downloadPreviewInvoicePDF() {
+  const inv = previewInvoiceData;
+  if (!inv) return;
+  const el = document.getElementById('invoicePrintTemplate');
+  const logoImg = el.querySelector('img[src*="logo"]');
+  if (logoImg) { try { logoImg.src = await loadImageAsBase64(logoImg.src); } catch(e) {} }
+  try {
+    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    let heightLeft = imgHeight;
+    let position = 0;
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pdf.internal.pageSize.getHeight();
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdf.internal.pageSize.getHeight();
+    }
+    pdf.save(`فاتورة_${inv.number}.pdf`);
+  } catch (err) {
+    console.error(err);
+    alert('تعذّر توليد PDF. جرّب الطباعة بدلاً من ذلك.');
+  }
+}
+
+async function downloadPreviewReceiptPDF() {
+  const rec = previewReceiptData;
+  if (!rec) return;
+  const el = document.getElementById('receiptPrintTemplate');
+  const logoImg = el.querySelector('img[src*="logo"]');
+  if (logoImg) { try { logoImg.src = await loadImageAsBase64(logoImg.src); } catch(e) {} }
+  try {
+    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, Math.min(imgHeight, pageHeight));
+    pdf.save(`سند_قبض_${rec.number}.pdf`);
+  } catch (err) {
+    console.error(err);
+    alert('تعذّر توليد PDF.');
+  }
+}
+
+function confirmSaveInvoice() {
+  if (!previewInvoiceData) return;
+  const invData = { ...previewInvoiceData, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+  const invId = uid();
+  invoicesCol().doc(invId).set(invData).then(() => {
+    const recId = uid();
+    const recData = { ...previewReceiptData, invoiceId: invId, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+    return receiptsCol().doc(recId).set(recData);
+  }).then(() => {
+    alert('تم حفظ الفاتورة وسند القبض ✅');
+    closePreviewModal();
+    document.getElementById('invoiceForm').reset();
+    document.getElementById('invItemsBody').innerHTML = '';
+    recalcInvoice();
+    renderInvoicesList();
+  }).catch(err => alert('تعذّر الحفظ: ' + err.message));
+}
 
 /* ================= Completed Works ================= */
 function renderCompletedWorks() {

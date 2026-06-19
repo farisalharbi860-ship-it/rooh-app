@@ -444,6 +444,31 @@
   </div>
 </div>
 
+<!-- ===== INVOICE & RECEIPT PREVIEW MODAL ===== -->
+<div class="modal-overlay" id="previewModal" style="display:none">
+  <div class="modal" style="max-width:920px;max-height:90vh;overflow:auto;background:#fff">
+    <div class="modal-head">
+      <div>
+        <h2>معاينة الفاتورة وسند القبض</h2>
+        <div class="sub">راجع الفاتورة قبل الطباعة أو التنزيل</div>
+      </div>
+      <button class="close-x" onclick="closePreviewModal()">✕</button>
+    </div>
+    <div style="padding:16px">
+      <div id="previewInvoiceArea"></div>
+      <hr style="margin:20px 0;border:1px solid #eee">
+      <div id="previewReceiptArea"></div>
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap" class="no-print">
+        <button class="btn btn-primary" onclick="confirmSaveInvoice()">💾 حفظ الفاتورة والسند</button>
+        <button class="btn btn-primary" onclick="printPreview()">🖨️ طباعة</button>
+        <button class="btn btn-success" onclick="downloadPreviewInvoicePDF()">📄 تنزيل الفاتورة PDF</button>
+        <button class="btn btn-success" onclick="downloadPreviewReceiptPDF()">🧾 تنزيل السند PDF</button>
+        <button class="btn btn-ghost" onclick="closePreviewModal()">إغلاق</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
