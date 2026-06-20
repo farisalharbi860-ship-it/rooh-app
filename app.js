@@ -1218,7 +1218,7 @@ function closePreviewModal() {
 function fillInvoiceTemplate(inv) {
   const items = (inv.items || []);
   let subtotal = 0;
-  items.forEach(it => subtotal += (Number(it.qtyPrev)||0 + Number(it.qtyCurr)||0) * (Number(it.rate)||0));
+  items.forEach(it => subtotal += (Number(it.qtyCurr)||0) * (Number(it.rate)||0));
   const vat = subtotal * 0.15;
   const total = subtotal + vat;
   document.getElementById('ptCustomer').textContent = inv.customer;
