@@ -383,7 +383,7 @@ async function downloadInvoicePDF(invId) {
       <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.rate)}</td>
       <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.amtPrev)}</td>
       <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.amtCurr)}</td>
-      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.amtTotal)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.amtCurr)}</td>
     </tr>
   `).join('');
   document.getElementById('ptSubtotal').textContent = fmt(subtotal);
@@ -1242,7 +1242,7 @@ function fillInvoiceTemplate(inv) {
       <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.rate)}</td>
       <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.amtPrev)}</td>
       <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.amtCurr)}</td>
-      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.amtTotal)}</td>
+      <td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px">${fmt(it.amtCurr)}</td>
     </tr>
   `).join('');
   document.getElementById('ptSubtotal').textContent = fmt(subtotal);
