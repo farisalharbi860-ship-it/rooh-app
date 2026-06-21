@@ -232,7 +232,76 @@ function listenInvoices() {
       wrap.innerHTML = '<div class="empty"><div class="big">🧾</div>لا توجد فواتير بعد.</div>';
       return;
     }
-    wrap.innerHTML = snap.docs.map(d => {
+    // Get search filters
+    const searchNum = (document.getElementById('invSearch').value || '').toLowerCase();
+    const searchAmt = (document.getElementById('invSearchAmount').value || '').replace(/,/g, '');
+    const searchDate = document.getElementById('invSearchDate').value || '';
+    const searchCustomer = document.getElementById('invSearchCustomer').value || '';
+    const searchProject = document.getElementById('invSearchProject').value || '';
+
+    // Populate customer & project dropdowns from invoices data
+    const allInvs = snap.docs.map(d => d.data());
+    const customers = [...new Set(allInvs.map(inv => inv.customer).filter(Boolean))].sort();
+    const projects = [...new Set(allInvs.map(inv => inv.project).filter(Boolean))].sort();
+    const custSel = document.getElementById('invSearchCustomer');
+    const projSel = document.getElementById('invSearchProject');
+    if (custSel) {
+      const currentCust = custSel.value;
+      custSel.innerHTML = '<option value="">كل العملاء</option>' + customers.map(c => `<option value="${esc(c)}" ${c===currentCust?'selected':''}>${esc(c)}</option>`).join('');
+    }
+    if (projSel) {
+      const currentProj = projSel.value;
+      projSel.innerHTML = '<option value="">كل المشاريع</option>' + projects.map(p => `<option value="${esc(p)}" ${p===currentProj?'selected':''}>${esc(p)}</option>`).join('');
+    }
+
+    let docs = snap.docs;
+    // Filter by invoice number
+    if (searchNum) docs = docs.filter(d => {
+      const inv = d.data();
+      return (inv.number || '').toLowerCase().includes(searchNum);
+    });
+    // Filter by amount (approximate)
+    if (searchAmt) {
+      const target = parseFloat(searchAmt);
+      if (!isNaN(target)) {
+        docs = docs.filter(d => {
+          const inv = d.data();
+          const items = inv.items || [];
+          let subtotal = 0;
+          items.forEach(it => { subtotal += parseNum(it.qtyCurr) * parseNum(it.rate); });
+          const total = subtotal * 1.15;
+          return Math.round(total) === Math.round(target) || String(Math.round(total)).includes(searchAmt);
+        });
+      }
+    }
+    // Filter by date
+    if (searchDate) {
+      docs = docs.filter(d => {
+        const inv = d.data();
+        return inv.date === searchDate;
+      });
+    }
+    // Filter by customer
+    if (searchCustomer) {
+      docs = docs.filter(d => {
+        const inv = d.data();
+        return inv.customer === searchCustomer;
+      });
+    }
+    // Filter by project
+    if (searchProject) {
+      docs = docs.filter(d => {
+        const inv = d.data();
+        return inv.project === searchProject;
+      });
+    }
+
+    if (!docs.length) {
+      wrap.innerHTML = '<div class="empty"><div class="big">🔍</div>لا توجد نتائج مطابقة للبحث.</div>';
+      return;
+    }
+
+    wrap.innerHTML = docs.map(d => {
       const inv = d.data();
       const items = inv.items || [];
       let subtotal = 0;

@@ -254,6 +254,14 @@
 
     <div class="card">
       <h2><span class="dot"></span> قائمة الفواتير</h2>
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <input type="text" id="invSearch" placeholder="🔍 بحث برقم الفاتورة..." oninput="renderInvoicesList()" style="max-width:200px" />
+        <input type="text" id="invSearchAmount" placeholder="🔍 بحث بمبلغ..." oninput="renderInvoicesList()" style="max-width:160px" />
+        <input type="date" id="invSearchDate" onchange="renderInvoicesList()" style="max-width:150px" />
+        <select id="invSearchCustomer" onchange="renderInvoicesList()" style="max-width:180px"><option value="">كل العملاء</option></select>
+        <select id="invSearchProject" onchange="renderInvoicesList()" style="max-width:180px"><option value="">كل المشاريع</option></select>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('invSearch').value='';document.getElementById('invSearchAmount').value='';document.getElementById('invSearchDate').value='';document.getElementById('invSearchCustomer').value='';document.getElementById('invSearchProject').value='';renderInvoicesList()">🔄 إعادة</button>
+      </div>
       <div id="invoicesList"></div>
     </div>
   </div>
