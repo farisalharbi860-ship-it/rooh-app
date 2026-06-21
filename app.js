@@ -557,7 +557,8 @@ function switchTab(name) {
   if (name === 'reports') refreshReportSelect();
   if (name === 'invoices') { refreshInvoiceProjectSelect(); renderInvoicesList(); addInvoiceRow(); }
   if (name === 'completed') renderCompletedWorks();
-  if (name === 'dashboard') renderDashboard();
+  document.getElementById('tab-directory').style.display = name === 'directory' ? 'block' : 'none';
+  if (name === 'directory') renderDirectory();
 }
 
 function refreshInvoiceProjectSelect() {
@@ -565,11 +566,53 @@ function refreshInvoiceProjectSelect() {
   if (!sel) return;
   const opts = state.projects.map(p => `<option value="${esc(p.id)}" data-name="${esc(p.name)}" data-company="${esc(p.company || '')}">${esc(p.name)} — ${esc(p.company || '')}</option>`).join('');
   sel.innerHTML = '<option value="">اختر مشروعاً...</option>' + opts;
-  // auto-fill customer when project changes
-  sel.onchange = () => {
-    const opt = sel.options[sel.selectedIndex];
-    document.getElementById('invCustomer').value = opt.dataset.company || '';
-  };
+
+  // Fill customer select from directory (contractors + suppliers)
+  const custSel = document.getElementById('invCustomer');
+  if (custSel) {
+    const contacts = directoryData.filter(c => c.type === 'contractor' || c.type === 'supplier');
+    const cOpts = contacts.map(c => `<option value="${esc(c.name)}" data-type="${esc(c.type)}" data-vat="${esc(c.vat || '')}" data-phone="${esc(c.phone || '')}" data-address="${esc(c.address || '')}" data-cr="${esc(c.cr || '')}" data-specialty="${esc(c.specialty || '')}" data-email="${esc(c.email || '')}">${esc(c.name)} ${c.type==='supplier'?'(مورد)':'(مقاول)'}</option>`).join('');
+    custSel.innerHTML = '<option value="">اختر من الدليل...</option>' + cOpts;
+    // auto-fill VAT and show info when customer changes
+    custSel.onchange = () => {
+      const opt = custSel.options[custSel.selectedIndex];
+      const vatInp = document.getElementById('invVatNo');
+      if (vatInp && opt.dataset.vat) vatInp.value = opt.dataset.vat;
+      // Show customer info box
+      const infoBox = document.getElementById('invCustomerInfo');
+      const conDiv = document.getElementById('iciContractor');
+      const supDiv = document.getElementById('iciSupplier');
+      if (infoBox && opt.value) {
+        if (opt.dataset.type === 'supplier') {
+          // Supplier info
+          if (conDiv) conDiv.style.display = 'none';
+          if (supDiv) {
+            supDiv.style.display = 'flex';
+            document.getElementById('iciSupName').textContent = opt.value;
+            document.getElementById('iciSupSpecialty').textContent = opt.dataset.specialty || '-';
+            document.getElementById('iciSupCompany').textContent = opt.dataset.address || '-';
+            document.getElementById('iciSupPhone').textContent = opt.dataset.phone || '-';
+            document.getElementById('iciSupEmail').textContent = opt.dataset.email || '-';
+          }
+        } else {
+          // Contractor info
+          if (supDiv) supDiv.style.display = 'none';
+          if (conDiv) {
+            conDiv.style.display = 'flex';
+            document.getElementById('iciName').textContent = opt.value;
+            document.getElementById('iciPhone').textContent = opt.dataset.phone || '-';
+            document.getElementById('iciAddress').textContent = opt.dataset.address || '-';
+            document.getElementById('iciCr').textContent = opt.dataset.cr || '-';
+          }
+        }
+        infoBox.style.display = 'block';
+      } else if (infoBox) {
+        infoBox.style.display = 'none';
+        if (conDiv) conDiv.style.display = 'none';
+        if (supDiv) supDiv.style.display = 'none';
+      }
+    };
+  }
 }
 
 /* ================= Projects ================= */
@@ -1163,6 +1206,7 @@ function startSync() {
     },
     err => console.error('sync error', err)
   );
+  listenDirectory();
 }
 
 /* مراقبة حالة تسجيل الدخول */
@@ -1463,6 +1507,108 @@ function renderDashboard() {
         </div>
       </div>
     `).join('');
+}
+
+/* ================= Directory (Contacts) ================= */
+const TYPE_LABELS = {
+  contractor: 'مقاول',
+  supplier: 'مورد',
+  consultant: 'استشاري',
+  subcontractor: 'مقاول من الباطن',
+  other: 'أخرى'
+};
+
+function contactsCol() {
+  return db.collection('users').doc(currentUser.uid).collection('contacts');
+}
+
+let directoryUnsub = null;
+let directoryData = [];
+
+function listenDirectory() {
+  if (directoryUnsub) { directoryUnsub(); directoryUnsub = null; }
+  directoryUnsub = contactsCol().orderBy('name').onSnapshot(snap => {
+    directoryData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (document.getElementById('tab-directory').style.display !== 'none') renderDirectory();
+  }, err => console.error('Directory listen error', err));
+}
+
+async function addContact(e) {
+  e.preventDefault();
+  const editId = document.getElementById('dEditId').value;
+  const data = {
+    name: document.getElementById('dName').value.trim(),
+    type: document.getElementById('dType').value,
+    specialty: document.getElementById('dSpecialty').value.trim(),
+    phone: document.getElementById('dPhone').value.trim(),
+    email: document.getElementById('dEmail').value.trim(),
+    vat: document.getElementById('dVat').value.trim(),
+    cr: document.getElementById('dCr').value.trim(),
+    address: document.getElementById('dAddress').value.trim(),
+    notes: document.getElementById('dNotes').value.trim(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  if (!data.name || !data.type) { alert('الاسم والنوع مطلوبان.'); return false; }
+  try {
+    if (editId) {
+      await contactsCol().doc(editId).update(data);
+    } else {
+      data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      await contactsCol().doc(uid()).set(data);
+    }
+    document.getElementById('directoryForm').reset();
+    document.getElementById('dEditId').value = '';
+  } catch (err) { alert('تعذّر الحفظ: ' + err.message); }
+  return false;
+}
+
+async function deleteContact(id) {
+  if (!confirm('حذف جهة الاتصال؟')) return;
+  try { await contactsCol().doc(id).delete(); } catch (err) { alert('تعذّر الحذف: ' + err.message); }
+}
+
+function editContact(id) {
+  const c = directoryData.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('dName').value = c.name || '';
+  document.getElementById('dType').value = c.type || '';
+  document.getElementById('dSpecialty').value = c.specialty || '';
+  document.getElementById('dPhone').value = c.phone || '';
+  document.getElementById('dEmail').value = c.email || '';
+  document.getElementById('dVat').value = c.vat || '';
+  document.getElementById('dCr').value = c.cr || '';
+  document.getElementById('dAddress').value = c.address || '';
+  document.getElementById('dNotes').value = c.notes || '';
+  document.getElementById('dEditId').value = id;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderDirectory() {
+  const wrap = document.getElementById('directoryList');
+  if (!wrap) return;
+  const search = (document.getElementById('dSearch').value || '').toLowerCase();
+  const filterType = document.getElementById('dFilterType').value;
+  let list = directoryData;
+  if (search) list = list.filter(c => (c.name + ' ' + (c.phone || '')).toLowerCase().includes(search));
+  if (filterType) list = list.filter(c => c.type === filterType);
+  if (!list.length) { wrap.innerHTML = '<p style="text-align:center;color:var(--muted);padding:20px">لا توجد جهات اتصال.</p>'; return; }
+
+  wrap.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr>
+      <th>الاسم</th><th>النوع</th><th>التخصص</th><th>الجوال</th><th>الرقم الضريبي</th><th>العنوان</th><th class="no-print">إجراء</th>
+    </tr></thead><tbody>` +
+    list.map(c => `<tr>
+      <td><strong>${esc(c.name)}</strong>${c.notes ? `<div style="font-size:12px;color:var(--muted)">${esc(c.notes)}</div>` : ''}</td>
+      <td><span class="badge" style="background:#e0e7ff;color:#3730a3">${TYPE_LABELS[c.type] || c.type}</span></td>
+      <td>${esc(c.specialty || '-')}</td>
+      <td class="num">${esc(c.phone || '-')}</td>
+      <td class="num">${esc(c.vat || '-')}</td>
+      <td>${esc(c.address || '-')}</td>
+      <td class="no-print" style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="editContact('${c.id}')">✏️ تعديل</button>
+        <button class="btn btn-danger-ghost btn-sm" onclick="deleteContact('${c.id}')">🗑️ حذف</button>
+      </td>
+    </tr>`).join('') + '</tbody></table></div>';
 }
 
 /* ---- PWA: تسجيل الـ service worker للعمل دون إنترنت ---- */

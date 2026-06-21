@@ -110,6 +110,7 @@
       <button class="tab-btn" data-tab="reports" onclick="switchTab('reports')">التقارير</button>
       <button class="tab-btn" data-tab="invoices" onclick="switchTab('invoices')">🧾 فواتير</button>
       <button class="tab-btn" data-tab="completed" onclick="switchTab('completed')">✅ الأعمال المنجزة</button>
+      <button class="tab-btn" data-tab="directory" onclick="switchTab('directory')">📇 دليل المقاولين</button>
       <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard')">📊 داش بورد</button>
       <button class="btn btn-primary btn-sm" id="installBtn" style="display:none" onclick="installApp()" title="تثبيت التطبيق على جهازك">⬇️ تثبيت</button>
       <button class="btn btn-ghost btn-sm" onclick="exportBackup()" title="حفظ نسخة احتياطية">💾 نسخة</button>
@@ -190,7 +191,7 @@
       <h2><span class="dot"></span> إنشاء فاتورة ضريبية</h2>
       <form id="invoiceForm" onsubmit="return createInvoice(event)">
         <div class="form-grid">
-          <div class="field"><label>العميل (الشركة)</label><input type="text" id="invCustomer" placeholder="مثال: شركة اعمار الخليج" required /></div>
+          <div class="field"><label>العميل (من الدليل)</label><select id="invCustomer" required><option value="">اختر من الدليل...</option></select></div>
           <div class="field"><label>المشروع</label><select id="invProject" required></select></div>
           <div class="field"><label>رقم الفاتورة</label><input type="text" id="invNumber" placeholder="تلقائي إذا تركته فارغاً" /></div>
           <div class="field"><label>تاريخ الفاتورة</label><input type="date" id="invDate" required /></div>
@@ -202,6 +203,25 @@
           </div>
           <div class="field"><label>الرقم الضريبي للعميل</label><input type="text" id="invVatNo" placeholder="مثال: 310861602100003" /></div>
           <div class="field" style="grid-column:1/-1"><label>ملاحظات</label><input type="text" id="invNotes" placeholder="مثال: حسب - مستخلص رقم (2)" /></div>
+        </div>
+
+        <!-- معلومات العميل المختار -->
+        <div id="invCustomerInfo" style="display:none;background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:14px 0">
+          <!-- معلومات المقاول -->
+          <div id="iciContractor" style="display:none;display:flex;gap:20px;flex-wrap:wrap;font-size:13px">
+            <div><strong style="color:var(--muted)">الاسم:</strong> <span id="iciName"></span></div>
+            <div><strong style="color:var(--muted)">الجوال:</strong> <span id="iciPhone"></span></div>
+            <div><strong style="color:var(--muted)">المدينة:</strong> <span id="iciAddress"></span></div>
+            <div><strong style="color:var(--muted)">السجل التجاري:</strong> <span id="iciCr"></span></div>
+          </div>
+          <!-- معلومات المورد -->
+          <div id="iciSupplier" style="display:none;display:flex;gap:20px;flex-wrap:wrap;font-size:13px">
+            <div><strong style="color:var(--muted)">اسم المورد:</strong> <span id="iciSupName"></span></div>
+            <div><strong style="color:var(--muted)">نوع التوريد:</strong> <span id="iciSupSpecialty"></span></div>
+            <div><strong style="color:var(--muted)">الشركة/المؤسسة:</strong> <span id="iciSupCompany"></span></div>
+            <div><strong style="color:var(--muted)">الجوال:</strong> <span id="iciSupPhone"></span></div>
+            <div><strong style="color:var(--muted)">البريد الإلكتروني:</strong> <span id="iciSupEmail"></span></div>
+          </div>
         </div>
 
         <h3 style="margin:18px 0 10px;font-size:15px;color:var(--text)">بيان الأعمال</h3>
@@ -243,6 +263,81 @@
       <h2><span class="dot"></span> الأعمال المنجزة</h2>
       <p style="color:var(--muted);font-size:13px">تُستخرج الأعمال المنجزة من حقل "العمل المنجز" في نموذج إضافة المصروفات</p>
       <div id="completedList"></div>
+    </div>
+  </div>
+
+  <!-- ===== DIRECTORY TAB ===== -->
+  <div id="tab-directory" style="display:none">
+    <div class="card no-print">
+      <h2><span class="dot"></span> إضافة جهة اتصال</h2>
+      <form id="directoryForm" onsubmit="return addContact(event)">
+        <div class="form-grid">
+          <div class="field">
+            <label>الاسم / اسم الشركة</label>
+            <input type="text" id="dName" placeholder="مثال: شركة البناء للمقاولات" required />
+          </div>
+          <div class="field">
+            <label>النوع</label>
+            <select id="dType" required>
+              <option value="">اختر...</option>
+              <option value="contractor">مقاول</option>
+              <option value="supplier">مورد</option>
+              <option value="consultant">استشاري</option>
+              <option value="subcontractor">مقاول من الباطن</option>
+              <option value="other">أخرى</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>رقم الجوال</label>
+            <input type="tel" id="dPhone" placeholder="05xxxxxxxx" />
+          </div>
+          <div class="field">
+            <label>البريد الإلكتروني</label>
+            <input type="email" id="dEmail" placeholder="email@example.com" />
+          </div>
+          <div class="field">
+            <label>تخصص / نوع البنود</label>
+            <input type="text" id="dSpecialty" placeholder="مثال: مقاولات كهربائية، سباكة، بناء، ألومنيوم..." />
+          </div>
+          <div class="field">
+            <label>الرقم الضريبي</label>
+            <input type="text" id="dVat" placeholder="300xxxxxx000003" />
+          </div>
+          <div class="field">
+            <label>السجل التجاري</label>
+            <input type="text" id="dCr" placeholder="xxxxxxxxxx" />
+          </div>
+          <div class="field" style="grid-column:1/-1">
+            <label>العنوان</label>
+            <input type="text" id="dAddress" placeholder="المدينة، الحي، الشارع" />
+          </div>
+          <div class="field" style="grid-column:1/-1">
+            <label>ملاحظات</label>
+            <input type="text" id="dNotes" placeholder="أي ملاحظات إضافية..." />
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+          <button type="submit" class="btn btn-primary">➕ إضافة</button>
+          <button type="button" class="btn btn-ghost" onclick="document.getElementById('directoryForm').reset();document.getElementById('dEditId').value=''">إلغاء</button>
+          <input type="hidden" id="dEditId" value="" />
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2><span class="dot"></span> دليل المقاولين والموردين</h2>
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <input type="text" id="dSearch" placeholder="🔍 بحث بالاسم أو الجوال..." oninput="renderDirectory()" style="max-width:300px" />
+        <select id="dFilterType" onchange="renderDirectory()" style="max-width:160px">
+          <option value="">كل الأنواع</option>
+          <option value="contractor">مقاول</option>
+          <option value="supplier">مورد</option>
+          <option value="consultant">استشاري</option>
+          <option value="subcontractor">مقاول من الباطن</option>
+          <option value="other">أخرى</option>
+        </select>
+      </div>
+      <div id="directoryList"></div>
     </div>
   </div>
 
